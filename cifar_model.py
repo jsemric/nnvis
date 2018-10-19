@@ -58,10 +58,15 @@ def main():
     x_val = x_val / 255.
 
     model = keras.models.Sequential([
-        keras.layers.Conv2D(32, (3,3), activation='relu', padding='same',
+        keras.layers.Conv2D(64, (3,3), activation='relu', padding='same',
             input_shape=SHAPE),
         keras.layers.MaxPool2D(),
-        keras.layers.Conv2D(64, (3,3), activation='relu', padding='same'),
+        keras.layers.Conv2D(96, (3,3), activation='relu', padding='same'),
+        keras.layers.MaxPool2D(),
+        keras.layers.Dropout(.5),
+        keras.layers.Conv2D(32, (1,1), activation='relu', padding='same'),
+        keras.layers.Conv2D(128, (3,3), activation='relu', padding='same'),
+        keras.layers.Dropout(.5),
         keras.layers.Flatten(),
         keras.layers.Dense(4, activation='softmax')
     ])
