@@ -50,8 +50,8 @@ a<-factor(df$col)
 levels(a) <- c("epoch1", "epoch2", "epoch3", "epoch4", "epoch5", "epoch6", "epoch7", "epoch8", "epoch9", "epoch10")
 #plot_ly(x=df$x, y=df$y,z=df$col,colors=colors,type = 'scatter3d', mode = 'lines')%>%
 #a <- factor(c("epoch1", "epoch2", "epoch3", "epoch4", "epoch5", "epoch6", "epoch7", "epoch8", "epoch9", "epoch10"))
-plot_ly(x=df$x, y=df$y,z=df$col,color=a,type = 'scatter3d' ,mode = 'lines')%>%
-  layout(
+plot_ly(x=df$x, y=df$y,z=df$col,color=a,type = 'scatter3d' ,mode = 'lines',line=list(width=5))%>%
+  layout(title = 'condv kernel',
     xaxis = list(range = c(-0.5, 0.5)), 
     yaxis = list(range = c(0, 12500)))
 
