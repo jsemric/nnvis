@@ -2,13 +2,14 @@
 # TODO
 #   subclass Model
 #   use tf.Data
+#   different optimizer
 
 import argparse
 import numpy as np
 import tensorflow as tf
+import shutil
 
 from tensorflow import keras
-from tensorflow.keras.datasets import cifar10
 import matplotlib.pyplot as plt
 
 from prepare_datasets import get_cifar10_4
@@ -19,9 +20,11 @@ SHAPE = (32,32,3)
 def inspect_data(x_train, y_train, x_val, y_val, n_images=3):
     print('Train shape {} test shape {}'.format(x_train.shape, x_val.shape))
     fig, axes = plt.subplots(1,n_images)
+
     for i, n in enumerate(np.random.randint(0, x_train.shape[0], n_images)):
         axes[i].imshow(x_train[n])
         axes[i].set_title('label {}'.format(y_train[n]))
+
     plt.show()
 
 def main():
@@ -30,8 +33,10 @@ def main():
         help='number of epochs, default 10')
     parser.add_argument('-b', '--batch_size', type=int, default=64, metavar='N',
         help='batch size, default 64')
-    parser.add_argument('-o', '--out', type=str, help='output name',
-        default='cifar4')
+    parser.add_argument('-o', '--out', type=str,
+        help='output name, default cifar4', default='cifar4')
+    parser.add_argument('-t','--tb', action='store_true',
+        help='collect TensorBoard data')
     group = parser.add_mutually_exclusive_group()
     group.add_argument('-s','--summary', action='store_true',
         help='print the model summary and exit')
@@ -76,14 +81,23 @@ def main():
         return
    
     logs_keys = ['acc','val_acc','val_loss']
+
     clt = Collector(logfile=args.out, logs_keys=logs_keys,
         input_data=x_val[:5])
+    tb = keras.callbacks.TensorBoard(log_dir='./tbGraph', histogram_freq=1,  
+        write_graph=True, write_images=True)
+
+    callbacks = [clt]
+    if args.tb:
+        # remove dir
+        shutil.rmtree('./tbGraph')
+        callbacks = [tb]
 
     model.compile(loss='sparse_categorical_crossentropy', metrics=['accuracy'],
         optimizer='adam')
     collector_data = x_val[:n_show], y_val[:n_show]
     model.fit(x_train, y_train, validation_data=[x_val, y_val],
-        batch_size=batch_size, epochs=n_epochs, callbacks=[clt])
+        batch_size=batch_size, epochs=n_epochs, callbacks=callbacks)
     model.save('cifar4.h5')
 
 if __name__ == '__main__':
