@@ -45,12 +45,13 @@ PlotEachFunc <- function(epochI,layerI,kernelbiasI) {
 #data for plot All epoch
 PlotAllEpoch <- function(layerI,kernelbiasI) {
   #get hist & bin_edges All
-  hist<- matrix(nrow = 50,ncol = 10)
+  epoch=length(df)
+  hist<- matrix(nrow = 50,ncol = epoch)
   hist<- as.data.frame(hist)
-  bin_edges<- matrix(nrow = 50,ncol = 10)
+  bin_edges<- matrix(nrow = 50,ncol = epoch)
   bin_edges<- as.data.frame(bin_edges)
   #df[i][6=weight][1=conv2d,2=maxpooling,3=cov2d_1,4=flatten,5=dense][1=kernel,2=bias][1=hist,2=bin]
-  for(i in 1:10){
+  for(i in 1:epoch){
     #epoch,layer,kernel/bias
     histbin=DataFunc(i,layerI,kernelbiasI)
     hist[,i] =histbin[,1]
@@ -65,7 +66,7 @@ PlotAllEpoch <- function(layerI,kernelbiasI) {
   
   #plot
   a<-factor(df$col)
-  levels(a) <- c("epoch1", "epoch2", "epoch3", "epoch4", "epoch5", "epoch6", "epoch7", "epoch8", "epoch9", "epoch10")
+  #levels(a) <- c("epoch1", "epoch2", "epoch3", "epoch4", "epoch5", "epoch6", "epoch7", "epoch8", "epoch9", "epoch10")
   plot_ly(x=df$x, y=df$y,z=df$col,color=a,type = 'scatter3d' ,mode = 'lines',line=list(width=5))%>%
     layout(title = 'condv kernel',
            xaxis = list(range = c(-0.5, 0.5)), 
