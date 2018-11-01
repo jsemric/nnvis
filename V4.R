@@ -1,15 +1,14 @@
 #install.packages("plot3D")
 #install.packages("plotly")
 #install.packages("rgl")
-library(rgl)
-library(plot3D)
+#library(rgl)
+#library(plot3D)
 library(plotly)
-library(shiny)
-library(ggplot2)
+#library(shiny)
+#library(ggplot2)
 #install.packages("shiny")
 library(jsonlite)
 library(rjson)
-setwd("D:/gproject")
 json<- fromJSON(file = "nndump.json")
 df<-json$training
 
@@ -66,6 +65,8 @@ PlotAllEpoch <- function(layerI,kernelbiasI) {
   
   #plot
   a<-factor(df$col)
+  levelEpoch=paste("epoch",1:epoch)
+  levels(a) <- c(levelEpoch)
   #levels(a) <- c("epoch1", "epoch2", "epoch3", "epoch4", "epoch5", "epoch6", "epoch7", "epoch8", "epoch9", "epoch10")
   plot_ly(x=df$x, y=df$y,z=df$col,color=a,type = 'scatter3d' ,mode = 'lines',line=list(width=5))%>%
     layout(title = 'condv kernel',
@@ -79,4 +80,4 @@ PlotAllEpoch <- function(layerI,kernelbiasI) {
 #df[i][6=weight][1=conv2d,2=maxpooling,3=cov2d_1,4=flatten,5=dense][1=kernel,2=bias][1=hist,2=bin]
 #PlotEachFunc(1,5,1) #(epoch,layer,kernelbias)
 PlotAllEpoch(1,1)
-#PlotEachFunc(1,1,1) 
+
