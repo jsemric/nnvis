@@ -57,27 +57,47 @@ PlotAllEpoch <- function(layerI,kernelbiasI) {
     bin_edges[,i] =histbin[,2]
   }
   
-  df <- NULL
+  df1 <- NULL
   for(i in 1:epoch){
     temp_df <- data.frame(x=bin_edges[,i], y=hist[,i], col=rep(i:i, each=epoch))
-    df <- rbind(df,temp_df)
+    df1 <- rbind(df1,temp_df)
   }
   
   #plot
-  a<-factor(df$col)
+  a<-factor(df1$col)
   levelEpoch=paste("epoch",1:epoch)
   levels(a) <- c(levelEpoch)
   #levels(a) <- c("epoch1", "epoch2", "epoch3", "epoch4", "epoch5", "epoch6", "epoch7", "epoch8", "epoch9", "epoch10")
-  plot_ly(x=df$x, y=df$y,z=df$col,color=a,type = 'scatter3d' ,mode = 'lines',line=list(width=5))%>%
+  plot_ly(x=df1$x, y=df1$y,z=df1$col,color=a,type = 'scatter3d' ,mode = 'lines',line=list(width=5))%>%
     layout(title = 'condv kernel',
            xaxis = list(range = c(-0.5, 0.5)), 
            yaxis = list(range = c(0, 12500)))
   
 }
+###########################################################
+#plot scalar
+#[2=loss,3=acc,4=val_acc,5=valloss]
+PlotScalars <- function(graphI) {
+  epoch=length(df)
+  val<- matrix(nrow = epoch,ncol = 2)
+  val<- as.data.frame(val)
+  names(val) <- c("epoch", "value")
+  for(i in 1:epoch){
+    val[i,1]=i
+    val[i,2]=df[[i]][[graphI]]
+    print(df[[i]][[graphI]])
+  }
+
+  plot_ly(x=val$epoch, y=val$value ,mode = 'lines',line=list(width=5))    
+}  
+
 #############################################################
 #
 # Main 
 #df[i][6=weight][1=conv2d,2=maxpooling,3=cov2d_1,4=flatten,5=dense][1=kernel,2=bias][1=hist,2=bin]
 #PlotEachFunc(1,5,1) #(epoch,layer,kernelbias)
-PlotAllEpoch(1,1)
+#PlotAllEpoch(1,1) #(layerI,kernelbiasI)
+#
+#[2=loss,3=acc,4=val_acc,5=valloss]
+#PlotScalars(3) #(graphI)
 

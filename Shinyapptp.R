@@ -81,18 +81,18 @@ PlotAllEpoch <- function(layerI,kernelbiasI) {
     bin_edges[,i] =histbin[,2]
   }
   
-  df <- NULL
+  df1 <- NULL
   for(i in 1:epoch){
     temp_df <- data.frame(x=bin_edges[,i], y=hist[,i], col=rep(i:i, each=epoch))
-    df <- rbind(df,temp_df)
+    df1 <- rbind(df1,temp_df)
   }
   
   #plot
-  a<-factor(df$col)
+  a<-factor(df1$col)
   levelEpoch=paste("epoch",1:epoch)
   levels(a) <- c(levelEpoch)
   #levels(a) <- c("epoch1", "epoch2", "epoch3", "epoch4", "epoch5", "epoch6", "epoch7", "epoch8", "epoch9", "epoch10")
-  plot_ly(x=df$x, y=df$y,z=df$col,color=a,type = 'scatter3d' ,mode = 'lines',line=list(width=5))%>%
+  plot_ly(x=df1$x, y=df1$y,z=df1$col,color=a,type = 'scatter3d' ,mode = 'lines',line=list(width=5))%>%
     layout(title = 'condv kernel',
            xaxis = list(range = c(-0.5, 0.5)), 
            yaxis = list(range = c(0, 12500)))
@@ -106,9 +106,6 @@ PlotAllEpoch <- function(layerI,kernelbiasI) {
 
 ############################################################################
 ################################################################
-
-
-
 
 
 #################################################################################################
