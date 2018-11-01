@@ -89,6 +89,8 @@ PlotAllEpoch <- function(layerI,kernelbiasI) {
   
   #plot
   a<-factor(df$col)
+  levelEpoch=paste("epoch",1:epoch)
+  levels(a) <- c(levelEpoch)
   #levels(a) <- c("epoch1", "epoch2", "epoch3", "epoch4", "epoch5", "epoch6", "epoch7", "epoch8", "epoch9", "epoch10")
   plot_ly(x=df$x, y=df$y,z=df$col,color=a,type = 'scatter3d' ,mode = 'lines',line=list(width=5))%>%
     layout(title = 'condv kernel',
