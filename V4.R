@@ -59,7 +59,7 @@ PlotAllEpoch <- function(layerI,kernelbiasI) {
   
   df1 <- NULL
   for(i in 1:epoch){
-    temp_df <- data.frame(x=bin_edges[,i], y=hist[,i], col=rep(i:i, each=epoch))
+    temp_df <- data.frame(x=bin_edges[,i], y=hist[,i], col=i)
     df1 <- rbind(df1,temp_df)
   }
   
@@ -94,6 +94,7 @@ PlotScalars <- function(graphI) {
 
 ###########################################################
 #data for plot some epoch
+
 PlotSomeEpoch <- function(epochI,layerI,kernelbiasI) {
   epoch=length(df)
   trueCount=sum(epochI, na.rm = TRUE)
@@ -110,12 +111,16 @@ PlotSomeEpoch <- function(epochI,layerI,kernelbiasI) {
       k<-k+1
     }
   }
-  
+
   df1 <- NULL
-  for(i in 1:trueCount){
-    temp_df <- data.frame(x=bin_edges[,i], y=hist[,i], col=rep(i:i, each=trueCount))
-    df1 <- rbind(df1,temp_df)
+  if(trueCount!=0){
+    
+    for(i in 1:trueCount){
+      temp_df <- data.frame(x=bin_edges[,i], y=hist[,i], col=i)
+      df1 <- rbind(df1,temp_df)
+    }
   }
+
   
   #plot
   a<-factor(df1$col)
@@ -135,7 +140,6 @@ PlotSomeEpoch <- function(epochI,layerI,kernelbiasI) {
 PlotAllEpoch(1,1) #(layerI,kernelbiasI)
 #inEpoch <- c(TRUE,FALSE,TRUE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE)
 #PlotSomeEpoch(inEpoch,1,1) #(epochI,layerI,kernelbiasI) 
-
 #
 #[2=loss,3=acc,4=val_acc,5=valloss]
 #PlotScalars(3) #(graphI)

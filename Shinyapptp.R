@@ -83,7 +83,7 @@ PlotAllEpoch <- function(layerI,kernelbiasI) {
   
   df1 <- NULL
   for(i in 1:epoch){
-    temp_df <- data.frame(x=bin_edges[,i], y=hist[,i], col=rep(i:i, each=epoch))
+    temp_df <- data.frame(x=bin_edges[,i], y=hist[,i], col=i)
     df1 <- rbind(df1,temp_df)
   }
   
