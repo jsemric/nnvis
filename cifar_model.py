@@ -34,6 +34,8 @@ def main():
         help='number of epochs, default 10')
     parser.add_argument('-b', '--batch_size', type=int, default=64, metavar='N',
         help='batch size, default 64')
+    parser.add_argument('-x', '--xenc', action='store_true',
+        help='put X as a placeholder for arrays')
     parser.add_argument('-o', '--out', type=str,
         help='output name, default cifar4', default='cifar4')
     parser.add_argument('-t','--tb', action='store_true',
@@ -73,24 +75,40 @@ def main():
         keras.layers.Conv2D(96, kernel_size=(3,3), activation='relu',
             padding='same'),
         keras.layers.MaxPool2D(),
-        keras.layers.Dropout(.5),
-        keras.layers.Conv2D(32, kernel_size=(1,1), activation='relu',
-            padding='same'),
-        keras.layers.Conv2D(128, kernel_size=(3,3), activation='relu',
-            padding='same'),
-        keras.layers.Dropout(.5),
         keras.layers.Flatten(),
         keras.layers.Dense(4, activation='softmax')
     ])
+
+    # model = keras.models.Sequential([
+    #     keras.layers.Conv2D(64, kernel_size=(3,3), activation='relu',
+    #         padding='same', input_shape=SHAPE),
+    #     keras.layers.MaxPool2D(),
+    #     keras.layers.Conv2D(96, kernel_size=(3,3), activation='relu',
+    #         padding='same'),
+    #     keras.layers.MaxPool2D(),
+    #     keras.layers.Dropout(.5),
+    #     keras.layers.Conv2D(32, kernel_size=(1,1), activation='relu',
+    #         padding='same'),
+    #     keras.layers.Conv2D(128, kernel_size=(3,3), activation='relu',
+    #         padding='same'),
+    #     keras.layers.Dropout(.5),
+    #     keras.layers.Flatten(),
+    #     keras.layers.Dense(4, activation='softmax')
+    # ])
 
     if args.summary:
         print(model.summary())
         return
    
+    x_train, y_train = x_train[:1000], y_train[:1000]
+    x_val, y_val = x_val[:50], y_val[:50]
+
     logs_keys = ['acc','val_acc','val_loss']
+    enc = 'X' if args.xenc else 'base64'
 
     clt = Collector(logfile=args.out, logs_keys=logs_keys,
-        input_data=x_val[:5])
+        image_data=x_val[:5], array_encoding=enc,
+        validation_data=(x_val,y_val))
     tb = keras.callbacks.TensorBoard(log_dir='tbGraph', histogram_freq=1,  
         write_graph=True, write_images=True)
 

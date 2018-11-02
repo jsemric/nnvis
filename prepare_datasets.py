@@ -2,7 +2,11 @@
 
 import os
 import numpy as np
-from tensorflow.keras.datasets import cifar10
+try:
+    from tensorflow.keras.datasets import cifar10
+except ImportError:
+    import tensorflow as tf
+    cifar10 = tensorflow.keras.datasets.cifar10
 
 def get_cifar10_4():
     dir_path = os.path.join('data','cifar10_4')

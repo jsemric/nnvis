@@ -1,17 +1,14 @@
-# TODO
-# val data - store projection
-# confusion matrix
-# labels
-# comments
-# type checking & error handling
-
 import json
 import base64
 import numpy as np
 import warnings
+import tensorflow as tf
 from pymongo import MongoClient
 from tensorflow import keras
-from tensorflow.keras import backend as K
+try:
+    from tensorflow.keras import backend as K
+except ImportError:
+    K = keras.backend
 from abc import ABC
 
 class CollectorError(Exception):
@@ -27,13 +24,14 @@ class CollectorBase(keras.callbacks.Callback, ABC):
     -----------
     Collect model data during training.
 
-    Data collected before training:
+    Data collected after or before training:
         1.) image data
         2.) a sequence of network layers
+        3.) validation data and predictions
 
     The following figures are collected during training after each epoch:
         1.) weights distributions (binning)
-        2.) outputs of each layer for image data
+        2.) outputs of each layer for the input data
         3.) loss and metrics for training and validation data
     
     Attributes
@@ -42,20 +40,20 @@ class CollectorBase(keras.callbacks.Callback, ABC):
         metrics to save, e.g., val_roc
 
     nbins: int
-        number of bins when computing histogram from weights
+        number of bins when computing histogram of weights/outputs
 
     serialize_array: callback
         function for serializing arrays
 
-    input_data: ndarray at least 2D or list of ndarrays
+    image_data: ndarray at least 2D or list of ndarrays
         data used for the layers output visualization
 
     val_data: tuple (ndarray, labels)
         data used for prediction projection/residuals visualization
     '''
 
-    def __init__(self, logs_keys=None, nbins=50, input_data=None, val_data=None,
-        array_srl='base64'):
+    def __init__(self, logs_keys=None, nbins=50, image_data=None,
+        validation_data=None, array_encoding='base64'):
         super(CollectorBase,self).__init__()
         self.logs_keys = {'loss'}
         if logs_keys is not None:
@@ -77,41 +75,61 @@ class CollectorBase(keras.callbacks.Callback, ABC):
 
         self.nbins = nbins
         
-        if array_srl == 'X':
+        if array_encoding == 'X':
             self.serialize_array = lambda _: 'X'
-        elif array_srl == 'base64':
-            self.serialize_array = lambda w: {'shape': w.shape,
-                'data': base64.b64encode(w).decode('ascii')}
-        elif array_srl == 'list':
+        elif array_encoding == 'base64':
+            self.serialize_array = lambda w: {
+                'shape': w.shape,
+                'data': base64.b64encode(w).decode('ascii')
+            }
+        elif array_encoding == 'list':
+            # not memory efficient, avoid
             self.serialize_array = lambda w: w.tolist()
         else:
-            raise ValueError('Invalid value for the parameter array_srl. '
+            raise ValueError('Invalid value for the parameter array_encoding. '
                 'Expected one of the following {} but found `{}`'.
-                format(['X','list','base64'], array_srl))
+                format(['X','list','base64'], array_encoding))
 
-        self.input_data = None
-        if input_data is not None:
-            self.input_data = input_data
+        self.image_data = image_data
+        self.validation_data = validation_data
+        # TODO check validation data
+        if image_data is not None:
+            pass
 
         self._functor = None
 
-    def _train_begin(self):
+    def _get_input_data_and_layers(self):
         ret = {'layers': [l.name for l in self.model.layers]}
-        if self.input_data is not None:
-            ret['input_data'] = self.serialize_array(self.input_data)
+        if self.image_data is not None:
+            ret['image_data'] = {
+                'input_data': self.serialize_array(self.image_data),
+                'outputs': {l.name: self.serialize_array(o) \
+                for l,o in self._get_outputs(self.image_data)}
+            }
 
+        if self.validation_data is not None:
+            X = self.validation_data[0]
+            y = self.validation_data[1]
+
+            ret['validation_data'] = {
+                'val_data': self.serialize_array(X),
+                'labels': self.serialize_array(y),
+                'predictions': self.serialize_array(self.model.predict_proba(X))
+            }
+
+        return ret
+
+    def on_train_begin(self,logs=None):
         # https://stackoverflow.com/questions/41711190/keras-how-to-get-the-
         # output-of-each-layer
         inp = self.model.input
         outputs = [l.output for l in self.model.layers]
         self._functor = K.function([inp], outputs)
 
-        return ret
-
-    def _get_outputs(self):
-        outs = self._functor([self.input_data])
+    def _get_outputs(self, input_data):
+        outs = self._functor([input_data])
         ls = self.model.layers
-        return {l.name: self.serialize_array(o) for l,o in zip(ls,outs)}
+        return zip(ls,outs)
 
     def _bin_weights(self):
         '''Make histograms from weights.'''
@@ -149,8 +167,9 @@ class CollectorBase(keras.callbacks.Callback, ABC):
             dump[k] = logs[k]
 
         dump['weights'] = self._bin_weights()
-        if self.input_data is not None:
-            dump['outputs'] = self._get_outputs()
+        # if self.validation_data is not None:
+        #     dump['outputs'] = {l.name: self._bin_array(o) \
+        #         for l, o in self._get_outputs(self.validation_data[0])}
 
         self._write_epoch(dump, epoch)
 
@@ -158,9 +177,6 @@ class CollectorBase(keras.callbacks.Callback, ABC):
         pass
 
     def on_train_end(self, logs=None):
-        pass
-
-    def on_train_begin(self, logs=None):
         pass
 
 class Collector(CollectorBase):
@@ -174,8 +190,11 @@ class Collector(CollectorBase):
         file descriptor
     '''
     def __init__(self, logfile, add_ext=True, logs_keys=None, nbins=50,
-        input_data=None, array_srl='base64'):
-        super(Collector,self).__init__(logs_keys, nbins, input_data, array_srl)
+        image_data=None, validation_data=None, array_encoding='base64'):
+        super(Collector,self).__init__(logs_keys=logs_keys, nbins=nbins,
+            image_data=image_data, array_encoding=array_encoding,
+            validation_data=validation_data)
+
         self.logfile = logfile
         if add_ext and not self.logfile.endswith('.json'):
             self.logfile += '.json'
@@ -188,6 +207,7 @@ class Collector(CollectorBase):
         json.dump(dump, self.file)
 
     def on_train_begin(self, logs=None):
+        super(self.__class__,self).on_train_begin(logs)
         '''Open file.'''
         try:
             self.file = open(self.logfile,'w')
@@ -195,17 +215,21 @@ class Collector(CollectorBase):
             msg = "cannot open file {}".format(self.logfile)
             raise CollectorError(msg) from e
 
-        # dump validation data and layers
-        json_str = json.dumps(self._train_begin())
-        # begin JSON file
-        self.file.write(json_str[:-1])
         # begin training collection
-        self.file.write(',"training" : [')
+        self.file.write('{"training": [')
 
     def on_train_end(self, logs=None):
         '''Dump layers close file.'''
+        # enclose training
+        self.file.write(']')
+        # store predictions and validation data
+        dump = self._get_input_data_and_layers()
+        if dump is not None:
+            self.file.write(',"train_end":')
+            json_str = json.dumps(dump)
+            self.file.write(json_str)
         # end of the collection and JSON file
-        self.file.write(']}')
+        self.file.write('}')
         self.file.close()
 
 class MongoCollector(Collector):
@@ -231,11 +255,14 @@ class MongoCollector(Collector):
     "input_data" : [data ...]
     "layers" : [layers ...],
     "training" : [epochs ...]
+    "validation" : {...}
     '''
     def __init__(self, collection_name, db_name='nnviz_db', logs_keys=None,
-        nbins=50, input_data=None, array_srl='base64'):
-        super(MongoCollector,self).__init__(logs_keys, nbins, input_data,
-            array_srl)
+        nbins=50, image_data=None, validation_data=None,
+        array_encoding='base64'):
+        super(MongoCollector,self).__init__(logs_keys=logs_keys, nbins=nbins,
+            image_data=image_data, array_encoding=array_encoding,
+            validation_data=validation_data)
         
         self.db_name = db_name
         self.collection_name = collection_name
@@ -243,6 +270,7 @@ class MongoCollector(Collector):
         self.collection = None
 
     def on_train_begin(self, logs=None):
+        super(self.__class__,self).on_train_begin(logs)
         self.client = MongoClient()
         db = self.client[self.db_name]
         self.collection = db[self.collection_name]
@@ -250,6 +278,9 @@ class MongoCollector(Collector):
     def on_train_end(self, logs=None):
         dump = self._train_begin()
         self.collection.insert(dump)
+        dump = self._get_input_data_and_layers()
+        if dump is not None:
+            self.collection.insert(dump)
         self.client.close()
 
     def _write_epoch(self, dump, epoch):
