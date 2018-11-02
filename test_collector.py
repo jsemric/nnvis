@@ -1,14 +1,17 @@
 #!/usr/bin/env python
+# TODO
+# projection + add predictions
+# more images/histograms
+# weight dynamics (new feature)
 
 import json
 import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 import base64
-from pprint import pprint
 
-def get_filtered_image(epochs, n_epoch,layer,n_image,n_filter):
-    outputs = epochs[n_epoch]['outputs'][layer]
+def get_filtered_image(train_end, layer, n_image, n_filter):
+    outputs = train_end['image_data']['outputs'][layer]
     shape = outputs['shape']
     data = outputs['data']
     a = np.frombuffer(base64.b64decode(data), np.float32)
@@ -30,13 +33,14 @@ def main():
         j = json.load(f)
 
     epochs = j['training']
+    train_end = j['train_end']
     hist, bins = show_hist(epochs, n_epoch=0, layer='dense',
         varname='dense/kernel:0')
     plt.fill_between(range(len(hist)),hist)
     # plt.set_xticks(bins)
     plt.show()
 
-    img = get_filtered_image(epochs, n_epoch=0, layer='conv2d', n_image=2,
+    img = get_filtered_image(train_end, layer='conv2d', n_image=2,
         n_filter=0)
     plt.imshow(img)
     plt.show()
