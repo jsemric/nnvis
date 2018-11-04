@@ -22,5 +22,5 @@ $ python cifar_model.py -o nndump.json
 
 Print the json in the human readable format.
 
-$ python print_json nndump.json
+$ python print_json.py nndump.json
 
