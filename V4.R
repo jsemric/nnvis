@@ -4,13 +4,14 @@
 #library(rgl)
 #library(plot3D)
 library(plotly)
-#library(shiny)
-#library(ggplot2)
+library(shiny)
+library(ggplot2)
 #install.packages("shiny")
 library(jsonlite)
 library(rjson)
 json<- fromJSON(file = "nndump.json")
 df<-json$training
+img<-json[[2]]$image_data
 
 ###############################################
 #function get data
@@ -88,7 +89,7 @@ PlotScalars <- function(graphI) {
     val[i,2]=df[[i]][[graphI]]
     print(df[[i]][[graphI]])
   }
-
+  
   plot_ly(x=val$epoch, y=val$value ,mode = 'lines',line=list(width=5))    
 }  
 
@@ -111,7 +112,7 @@ PlotSomeEpoch <- function(epochI,layerI,kernelbiasI) {
       k<-k+1
     }
   }
-
+  
   df1 <- NULL
   if(trueCount!=0){
     
@@ -120,7 +121,7 @@ PlotSomeEpoch <- function(epochI,layerI,kernelbiasI) {
       df1 <- rbind(df1,temp_df)
     }
   }
-
+  
   
   #plot
   a<-factor(df1$col)
@@ -134,13 +135,48 @@ PlotSomeEpoch <- function(epochI,layerI,kernelbiasI) {
 }  
 #############################################################
 #
+#input image
+#
+#########
+#
+PlotInputImg<- function() {
+  dev.off()
+  imgIn=img$input_data
+  inShape=imgIn$shape
+  inData<-base64_dec(imgIn$data)
+  inOut = readBin(inData, double(), n=inShape[1]*inShape[2]*inShape[3]*inShape[4],size=4)
+  inOut =array_reshape(inOut,inShape) #library(reticulate)
+  require(grDevices)
+  library("imager")
+  library(reticulate)
+  par(mfrow=c(1,inShape[1]))  
+  for(i in 1:inShape[1]){
+    im<-inOut[i,,,]
+    getIm<-as.cimg(im)
+    plot(getIm,axes=FALSE)
+  }
+}
+#
+#############################################################
+#
+#Output image
+#
+#########
+#
+
+#
+#
+#############################################################
+#
 # Main 
 #df[i][6=weight][1=conv2d,2=maxpooling,3=cov2d_1,4=flatten,5=dense][1=kernel,2=bias][1=hist,2=bin]
 #PlotEachFunc(1,5,1) #(epoch,layer,kernelbias)
-PlotAllEpoch(1,1) #(layerI,kernelbiasI)
+#PlotAllEpoch(1,1) #(layerI,kernelbiasI)
 #inEpoch <- c(TRUE,FALSE,TRUE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE)
 #PlotSomeEpoch(inEpoch,1,1) #(epochI,layerI,kernelbiasI) 
 #
 #[2=loss,3=acc,4=val_acc,5=valloss]
 #PlotScalars(3) #(graphI)
-
+#
+#image
+#PlotInputImg()
