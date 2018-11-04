@@ -81,7 +81,7 @@ class CollectorBase(keras.callbacks.Callback, ABC):
             self.serialize_array = lambda w: {
                 'shape': w.shape,
                 'data': base64.b64encode(
-                    np.ascontiguousarray(w)).decode('ascii')
+                    np.ascontiguousarray(w, dtype=np.float32)).decode('ascii')
             }
         elif array_encoding == 'list':
             # not memory efficient, avoid

@@ -15,7 +15,7 @@ def get_image_data(train_end, nrow=2, ncol=2):
     input_data = train_end['image_data']['input_data']
     shape = input_data['shape']
     data = input_data['data']
-    a = np.frombuffer(base64.b64decode(data), np.float64)
+    a = np.frombuffer(base64.b64decode(data), np.float32)
     a.shape = shape
     fig, axes = plt.subplots(nrow,ncol)
     fig.suptitle('input images')
@@ -50,7 +50,7 @@ def show_hist(epochs, n_epoch, layer, varname):
     hist = w['hist']
     bins = w['bin_edges']
     h_data, h_shape = hist['data'], hist['shape']
-    hist = np.frombuffer(base64.b64decode(h_data), np.int64)
+    hist = np.frombuffer(base64.b64decode(h_data), np.float32)
     b_data, b_shape = bins['data'], bins['shape']
     bins = np.frombuffer(base64.b64decode(b_data), np.float32)
     plt.title(f'{layer} weights')
