@@ -28,6 +28,7 @@ DataFunc <- function(epoch,layer,kernelbias) {
   binOut<- binOut[-1]
   dataOut[,1]=histOut
   dataOut[,2]=binOut
+  print(dataOut)
   return(dataOut)
 }
 ###########################################################
@@ -46,6 +47,7 @@ PlotEachFunc <- function(epochI,layerI,kernelbiasI) {
 ###########################################################
 #data for plot All epoch
 #[1=conv2d,3=cov2d_1,6=dense][1=kernel,2=bias]
+#PlotAllEpoch(1,1)
 PlotAllEpoch <- function(layerI,kernelbiasI) {
   #get hist & bin_edges All
   epoch=length(df)
@@ -93,7 +95,7 @@ PlotScalars <- function(graphI) {
     val[i,2]=df[[i]][[graphI]]
   }
   
-  plot_ly(x=val$epoch, y=val$value ,mode = 'lines',line=list(width=5))    
+  return (plot_ly(x=val$epoch, y=val$value ,mode = 'lines',line=list(width=5))  )  
 }  
 
 ###########################################################
@@ -140,7 +142,7 @@ PlotSomeEpoch <- function(epochI,layerI,kernelbiasI) {
 #############################################################
 #
 #input image
-#
+#PlotInputImg()
 #########
 #
 PlotInputImg<- function() {
@@ -163,23 +165,48 @@ PlotInputImg<- function() {
 #############################################################
 #
 #Output image
-#
+#lastFill-firstFill no more than 10 no more than 10 img each 
+#[1=conv2d,3=cov2d_1,6=dense]
+#PlotOutputImg(1,11,10) #(layerI,imgI,firstFill,lastFill) 
 #########
 #
+PlotOutputImg<- function(layerI,imgI,firstFill,lastFill) {
+  imgOut=img$outputs[[layerI]]
+  outShape=imgOut$shape
+  outData<-base64_dec(imgOut$data)
+  outOut = readBin(outData, double(), n=outShape[1]*outShape[2]*outShape[3]*outShape[4],size=4)
+  outOut =array_reshape(outOut,outShape) #library(reticulate)
+  require(grDevices)
+  library("imager")
+  library(reticulate)
+  par(mfrow=c(ceiling((lastFill-firstFill)/5),5))  
+  for(i in firstFill:lastFill){
+    im<-outOut[imgI,,,i]
+    getIm<-as.cimg(im)
+    plot(getIm,axes=FALSE)
+  }
+}
 
 #
 #
 #############################################################
 #
 # Main 
-#df[i][6=weight][1=conv2d,3=cov2d_1,6=dense][1=kernel,2=bias][1=hist,2=bin]
+#df[epoch][6=weight][1=conv2d,3=cov2d_1,6=dense][1=kernel,2=bias][1=hist,2=bin]
 #PlotEachFunc(1,5,1) #(epoch,layer,kernelbias)
-PlotAllEpoch(1,1) #(layerI,kernelbiasI)
+PlotAllEpoch(6,1) #(layerI,kernelbiasI)
+
 #inEpoch <- c(TRUE,FALSE,TRUE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE)
 #PlotSomeEpoch(inEpoch,1,1) #(epochI,layerI,kernelbiasI) 
-#
+
 #[2=acc,3=loss,4=val_loss,5=val_acc]
 #PlotScalars(3) #(graphI)
-#
+
 #image
 #PlotInputImg()
+
+#lastFill-firstFill no more than 10 
+#PlotOutputImg(1,1,1,10) #(layerI,imgI,firstFill,lastFill) 
+
+#[1=conv2d,3=cov2d_1,6=dense]
+#PlotOutputImg(1) #(layer)
