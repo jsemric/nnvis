@@ -52,7 +52,7 @@ class CollectorBase(keras.callbacks.Callback, ABC):
         data used for prediction projection/residuals visualization
     '''
 
-    def __init__(self, logs_keys=None, nbins=50, image_data=None,
+    def __init__(self, logs_keys=None, nbins=100, image_data=None,
         validation_data=None, array_encoding='base64'):
         super(CollectorBase,self).__init__()
         self.logs_keys = {'loss'}
@@ -98,6 +98,7 @@ class CollectorBase(keras.callbacks.Callback, ABC):
             pass
 
         self._functor = None
+        self.ranges = {}
 
     def _get_input_data_and_layers(self):
         ret = {'layers': [l.name for l in self.model.layers]}
@@ -143,13 +144,16 @@ class CollectorBase(keras.callbacks.Callback, ABC):
             ret[l.name] = {}
             for v,w in zip(vs,ws):
                 vn = v.name
-                ret[l.name][vn] = self._bin_array(w)
+                if vn not in self.ranges:
+                    std = w.std()
+                    self.ranges[vn] = (w.min() - std, w.max() + std)
+                ret[l.name][vn] = self._bin_array(w, self.ranges[vn])
 
         return ret
 
-    def _bin_array(self, a):
+    def _bin_array(self, a, rng=None):
         '''Binning an array and returning it as a dictionary.'''
-        hist, bin_edges = np.histogram(a, self.nbins)
+        hist, bin_edges = np.histogram(a, self.nbins, range=rng)
         ret = {
             'hist': self.serialize_array(hist),
             'bin_edges': self.serialize_array(bin_edges)
