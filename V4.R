@@ -9,6 +9,10 @@ library(ggplot2)
 #install.packages("shiny")
 library(jsonlite)
 library(rjson)
+library(reticulate)
+require(grDevices)
+library("imager")
+library(reticulate)
 json<- fromJSON(file = "nndump.json")
 df<-json$training
 img<-json[[2]]$image_data
@@ -176,9 +180,6 @@ PlotOutputImg<- function(layerI,imgI,firstFill,lastFill) {
   outData<-base64_dec(imgOut$data)
   outOut = readBin(outData, double(), n=outShape[1]*outShape[2]*outShape[3]*outShape[4],size=4)
   outOut =array_reshape(outOut,outShape) #library(reticulate)
-  require(grDevices)
-  library("imager")
-  library(reticulate)
   par(mfrow=c(ceiling((lastFill-firstFill)/5),5))  
   for(i in firstFill:lastFill){
     im<-outOut[imgI,,,i]
@@ -194,7 +195,7 @@ PlotOutputImg<- function(layerI,imgI,firstFill,lastFill) {
 # Main 
 #df[epoch][6=weight][1=conv2d,3=cov2d_1,6=dense][1=kernel,2=bias][1=hist,2=bin]
 #PlotEachFunc(1,5,1) #(epoch,layer,kernelbias)
-PlotAllEpoch(6,1) #(layerI,kernelbiasI)
+#PlotAllEpoch(6,1) #(layerI,kernelbiasI)
 
 #inEpoch <- c(TRUE,FALSE,TRUE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE)
 #PlotSomeEpoch(inEpoch,1,1) #(epochI,layerI,kernelbiasI) 
@@ -205,8 +206,7 @@ PlotAllEpoch(6,1) #(layerI,kernelbiasI)
 #image
 #PlotInputImg()
 
-#lastFill-firstFill no more than 10 
-#PlotOutputImg(1,1,1,10) #(layerI,imgI,firstFill,lastFill) 
-
 #[1=conv2d,3=cov2d_1,6=dense]
-#PlotOutputImg(1) #(layer)
+#lastFill-firstFill no more than 10 
+PlotOutputImg(1,4,1,10) #(layerI,imgI,firstFill,lastFill) 
+
