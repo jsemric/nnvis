@@ -1,15 +1,25 @@
+# TODO
+# weights dynamic
+# regression or classification
+
 import json
 import base64
 import numpy as np
 import warnings
 import tensorflow as tf
-from pymongo import MongoClient
+
 from tensorflow import keras
+from abc import ABC
+
+try:
+    from pymongo import MongoClient
+except ImportError:
+    MongoClient = None
+
 try:
     from tensorflow.keras import backend as K
 except ImportError:
     K = keras.backend
-from abc import ABC
 
 class CollectorError(Exception):
     '''Collector exception class.'''
@@ -53,11 +63,13 @@ class CollectorBase(keras.callbacks.Callback, ABC):
     '''
 
     def __init__(self, logs_keys=None, nbins=100, image_data=None,
-        validation_data=None, array_encoding='base64'):
+        validation_data=None, array_encoding='base64', labels=None):
         super(CollectorBase,self).__init__()
         self.logs_keys = {'loss'}
+
         if logs_keys is not None:
             type_ = type(logs_keys)
+
             if type_ == list:
                 self.logs_keys |= set(logs_keys)
             elif type_ == str:
@@ -93,20 +105,24 @@ class CollectorBase(keras.callbacks.Callback, ABC):
 
         self.image_data = image_data
         self.validation_data = validation_data
+        
         # TODO check validation data
         if image_data is not None:
             pass
 
         self._functor = None
         self.ranges = {}
+        self.weights = {}
 
     def _get_input_data_and_layers(self):
         ret = {'layers': [l.name for l in self.model.layers]}
+
         if self.image_data is not None:
             ret['image_data'] = {
                 'input_data': self.serialize_array(self.image_data),
-                'outputs': {l.name: self.serialize_array(o) \
-                for l,o in self._get_outputs(self.image_data)}
+                'outputs': {
+                    l.name: self.serialize_array(o) \
+                    for l,o in self._get_outputs(self.image_data)}
             }
 
         if self.validation_data is not None:
@@ -116,7 +132,7 @@ class CollectorBase(keras.callbacks.Callback, ABC):
             ret['validation_data'] = {
                 'val_data': self.serialize_array(X),
                 'labels': self.serialize_array(y),
-                'predictions': self.serialize_array(self.model.predict_proba(X))
+                'predictions': self.serialize_array(self.model.predict(X))
             }
 
         return ret
@@ -127,27 +143,52 @@ class CollectorBase(keras.callbacks.Callback, ABC):
         inp = self.model.input
         outputs = [l.output for l in self.model.layers]
         self._functor = K.function([inp], outputs)
+        ls = self.model.layers
+
+        for l in ls:
+            ws = l.get_weights()
+            vs = l.variables
+
+            self.weights[l.name] = {}
+            for v,w in zip(vs,ws):
+                vn = v.name
+                self.weights[l.name][vn] = w
 
     def _get_outputs(self, input_data):
         outs = self._functor([input_data])
         ls = self.model.layers
         return zip(ls,outs)
 
-    def _bin_weights(self):
+    def _handle_weights(self):
         '''Make histograms from weights.'''
         ls = self.model.layers
         ret = {}
+
         for l in ls:
             ws = l.get_weights()
             vs = l.variables
             assert len(ws) == len(vs)
             ret[l.name] = {}
+
             for v,w in zip(vs,ws):
                 vn = v.name
+
                 if vn not in self.ranges:
                     std = w.std()
                     self.ranges[vn] = (w.min() - std, w.max() + std)
-                ret[l.name][vn] = self._bin_array(w, self.ranges[vn])
+
+                
+                # compute absolute differences
+                diff = np.mean(np.abs(w - self.weights[l.name][vn]))
+                # update weights
+                self.weights[l.name][vn] = w
+                # get histograms
+                tmp = self._bin_array(w, self.ranges[vn])
+                # recast because float32 is not serializable
+                tmp['diff'] = float(diff) 
+                ret[l.name][vn] = tmp
+
+                # ret[l.name][vn] = self.serialize_array(w)
 
         return ret
 
@@ -158,12 +199,14 @@ class CollectorBase(keras.callbacks.Callback, ABC):
             'hist': self.serialize_array(hist),
             'bin_edges': self.serialize_array(bin_edges)
         }
+
         return ret
 
     def on_epoch_end(self, epoch, logs=None):
         '''Dump variables, outputs, loss and metrics.'''
         dump = {'epoch': epoch}
         logs_keys = set(logs.keys())
+
         if not logs_keys >= self.logs_keys:
             warnings.warn('removing invalid logging keys', RuntimeWarning)
             self.logs_keys &= logs_keys
@@ -171,7 +214,8 @@ class CollectorBase(keras.callbacks.Callback, ABC):
         for k in self.logs_keys:
             dump[k] = logs[k]
 
-        dump['weights'] = self._bin_weights()
+        dump['weights'] = self._handle_weights()
+
         # if self.validation_data is not None:
         #     dump['outputs'] = {l.name: self._bin_array(o) \
         #         for l, o in self._get_outputs(self.validation_data[0])}
@@ -196,13 +240,16 @@ class Collector(CollectorBase):
     '''
     def __init__(self, logfile, add_ext=True, logs_keys=None, nbins=50,
         image_data=None, validation_data=None, array_encoding='base64'):
+
         super(Collector,self).__init__(logs_keys=logs_keys, nbins=nbins,
             image_data=image_data, array_encoding=array_encoding,
             validation_data=validation_data)
 
         self.logfile = logfile
+
         if add_ext and not self.logfile.endswith('.json'):
             self.logfile += '.json'
+
         self.file = None
 
     def _write_epoch(self, dump, epoch):
@@ -229,10 +276,12 @@ class Collector(CollectorBase):
         self.file.write(']')
         # store predictions and validation data
         dump = self._get_input_data_and_layers()
+
         if dump is not None:
             self.file.write(',"train_end":')
             json_str = json.dumps(dump)
             self.file.write(json_str)
+
         # end of the collection and JSON file
         self.file.write('}')
         self.file.close()
@@ -265,6 +314,10 @@ class MongoCollector(Collector):
     def __init__(self, collection_name, db_name='nnviz_db', logs_keys=None,
         nbins=50, image_data=None, validation_data=None,
         array_encoding='base64'):
+
+        if MongoClient is None:
+            raise ImportError('In order to use, install pymongo')
+
         super(MongoCollector,self).__init__(logs_keys=logs_keys, nbins=nbins,
             image_data=image_data, array_encoding=array_encoding,
             validation_data=validation_data)
@@ -284,8 +337,10 @@ class MongoCollector(Collector):
         dump = self._train_begin()
         self.collection.insert(dump)
         dump = self._get_input_data_and_layers()
+
         if dump is not None:
             self.collection.insert(dump)
+
         self.client.close()
 
     def _write_epoch(self, dump, epoch):

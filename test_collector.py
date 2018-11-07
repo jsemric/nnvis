@@ -15,10 +15,12 @@ def get_image_data(train_end, nrow=2, ncol=2):
     input_data = train_end['image_data']['input_data']
     shape = input_data['shape']
     data = input_data['data']
+    
     a = np.frombuffer(base64.b64decode(data), np.float32)
     a.shape = shape
     fig, axes = plt.subplots(nrow,ncol)
     fig.suptitle('input images')
+
     for i in range(nrow*ncol):
         ax = axes[i // ncol][i % ncol]
         ax.imshow(a[i])
@@ -37,6 +39,7 @@ def get_filtered_image(train_end, layer, n_image, nrow=5, ncol=5):
 
     fig, axes = plt.subplots(nrow,ncol)
     fig.suptitle(f'{layer} outputs')
+
     for i in range(nrow*ncol):
         ax = axes[i // ncol][i % ncol]
         ax.imshow(a[n_image,:,:,i])
@@ -53,27 +56,64 @@ def get_hist(epochs, n_epoch, layer, varname):
     hist = np.frombuffer(base64.b64decode(h_data), np.float32)
     b_data, b_shape = bins['data'], bins['shape']
     bins = np.frombuffer(base64.b64decode(b_data), np.float32)
+
     return hist, bins
 
-def plot_hist(epochs):
-
+def plot_hist(epochs, layer='dense', vname='dense/kernel:0'):
     for e in range(0,7):
-        # h, b = get_hist(epochs, n_epoch=e, layer='conv2d', varname='conv2d/kernel:0')
-        h, b = get_hist(epochs, n_epoch=e, layer='dense', varname='dense/kernel:0')
+        h, b = get_hist(epochs, n_epoch=e, layer=layer, varname=vname)
         # print(np.sum(h))
         plt.plot(b[:-1], h/np.sum(h), alpha=0.8)
         # plt.fill_between(b[:-1], h, alpha=0.5)
-    # plt.fill_between(b2[:-1], h2, alpha=0.5)
+
     plt.title(f'dense weights') 
     os.makedirs('figures', exist_ok=True)
     plt.savefig(os.path.join('figures','hist.png'))
 
+def plot_weights(epochs, layer='dense_1', vname='dense_1/kernel:0', nrow=5, ncol=5):
+    l = []
+    for e in range(0, nrow * ncol + 1):
+        w = epochs[e]['weights'][layer][vname]
+        data = w['data']
+        data = np.frombuffer(base64.b64decode(data), np.float32)
+        data.shape = w['shape']
+        l.append(data)
+
+    a = [np.mean(np.abs(l[i + 1] - l[i])) for i in range(len(l)-1)]
+    plt.fill_between(range(len(a)),a)
+    plt.show()
+
+    fig, axes = plt.subplots(nrow, ncol)
+    fig.suptitle(f'{layer} outputs')
+    for i in range(nrow * ncol):
+        print(np.mean(np.abs(l[i + 1] - l[i])))
+        a = np.abs(l[i + 1] - l[i])
+        ax = axes[i // ncol][i % ncol]
+        ax.axis('off')
+        ax.imshow(a)
+
+    plt.show()
+
+def plot_ldiff(epochs, layer='dense', vname='dense/kernel:0'):
+    diffs = []
+    for e in epochs:
+        diffs.append(e['weights'][layer][vname]['diff'])
+
+    plt.fill_between(range(len(diffs)),diffs)
+    plt.show()
+
 def main():
+    # with open('full_weights.json') as f:
+    # with open('sgemm.json') as f:
     with open('cifar4.json') as f:
         j = json.load(f)
 
     epochs = j['training']
     train_end = j['train_end']
+
+    plot_ldiff(epochs)
+    # plot_weights(epochs)
+    return
     plot_hist(epochs)
     get_filtered_image(train_end, layer='conv2d', n_image=2)
     get_filtered_image(train_end, layer='conv2d_1', n_image=2)
