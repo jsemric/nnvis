@@ -1,7 +1,3 @@
-# TODO
-# weights dynamic
-# regression or classification
-
 import json
 import base64
 import numpy as np
@@ -32,22 +28,22 @@ class CollectorBase(keras.callbacks.Callback, ABC):
 
     Description
     -----------
-    Collect model data during training.
+    Collect data during the model training.
 
     Data collected after or before training:
-        1.) image data
-        2.) a sequence of network layers
+        1.) a sequence of network layers
+        2.) input image data and their outputs (for conv2d layers only)
         3.) validation data and predictions
 
     The following figures are collected during training after each epoch:
         1.) weights distributions (binning)
-        2.) outputs of each layer for the input data
-        3.) loss and metrics for training and validation data
+        2.) loss and metrics for training and validation data
+        3.) mean change of weights
     
-    Attributes
-    ----------
+    Attributes & Parameters
+    -----------------------
     log_keys: dict
-        metrics to save, e.g., val_roc
+        metrics to save, e.g., val_roc, val_loss, etc.
 
     nbins: int
         number of bins when computing histogram of weights/outputs
@@ -58,12 +54,27 @@ class CollectorBase(keras.callbacks.Callback, ABC):
     image_data: ndarray at least 2D or list of ndarrays
         data used for the layers output visualization
 
-    val_data: tuple (ndarray, labels)
+    validation_data: tuple (ndarray, labels)
         data used for prediction projection/residuals visualization
+
+    dump_weights: bool
+        if true, whole weights are saved, otherwise just histograms and mean
+        difference
+
+    Other Attributes
+    ----------------
+    _functor: list of callbacks
+        serves for extracting layer outputs
+
+    ranges: dict of arrays
+        ranges used for making histograms
+
+    weights: dict of narrays
+        stores layer weights in the previous step
     '''
 
     def __init__(self, logs_keys=None, nbins=100, image_data=None,
-        validation_data=None, array_encoding='base64', labels=None):
+        validation_data=None, array_encoding='base64', dump_weights=False):
         super(CollectorBase,self).__init__()
         self.logs_keys = {'loss'}
 
@@ -105,6 +116,7 @@ class CollectorBase(keras.callbacks.Callback, ABC):
 
         self.image_data = image_data
         self.validation_data = validation_data
+        self.dump_weights = dump_weights
         
         # TODO check validation data
         if image_data is not None:
@@ -137,26 +149,11 @@ class CollectorBase(keras.callbacks.Callback, ABC):
 
         return ret
 
-    def on_train_begin(self,logs=None):
-        # https://stackoverflow.com/questions/41711190/keras-how-to-get-the-
-        # output-of-each-layer
-        inp = self.model.input
-        outputs = [l.output for l in self.model.layers]
-        self._functor = K.function([inp], outputs)
-        ls = self.model.layers
-
-        for l in ls:
-            ws = l.get_weights()
-            vs = l.variables
-
-            self.weights[l.name] = {}
-            for v,w in zip(vs,ws):
-                vn = v.name
-                self.weights[l.name][vn] = w
-
     def _get_outputs(self, input_data):
         outs = self._functor([input_data])
-        ls = self.model.layers
+        # take only convolutional layers
+        ls = [l for l in self.model.layers \
+            if isinstance(l, keras.layers.Conv2D)]
         return zip(ls,outs)
 
     def _handle_weights(self):
@@ -177,18 +174,18 @@ class CollectorBase(keras.callbacks.Callback, ABC):
                     std = w.std()
                     self.ranges[vn] = (w.min() - std, w.max() + std)
 
-                
-                # compute absolute differences
-                diff = np.mean(np.abs(w - self.weights[l.name][vn]))
-                # update weights
-                self.weights[l.name][vn] = w
-                # get histograms
-                tmp = self._bin_array(w, self.ranges[vn])
-                # recast because float32 is not serializable
-                tmp['diff'] = float(diff) 
-                ret[l.name][vn] = tmp
-
-                # ret[l.name][vn] = self.serialize_array(w)
+                if self.dump_weights:
+                    ret[l.name][vn] = self.serialize_array(w)
+                else:
+                    # compute absolute differences
+                    diff = np.mean(np.abs(w - self.weights[l.name][vn]))
+                    # update weights
+                    self.weights[l.name][vn] = w
+                    # get histograms
+                    tmp = self._bin_array(w, self.ranges[vn])
+                    # recast because float32 is not serializable
+                    tmp['diff'] = float(diff) 
+                    ret[l.name][vn] = tmp
 
         return ret
 
@@ -201,6 +198,25 @@ class CollectorBase(keras.callbacks.Callback, ABC):
         }
 
         return ret
+
+    def on_train_begin(self,logs=None):
+        # https://stackoverflow.com/questions/41711190/keras-how-to-get-the-
+        # output-of-each-layer
+        inp = self.model.input
+        outputs = [l.output for l in self.model.layers]
+        self._functor = K.function([inp], outputs)
+        ls = self.model.layers
+
+        if not self.dump_weights:
+            # initialize weights
+            for l in ls:
+                ws = l.get_weights()
+                vs = l.variables
+
+                self.weights[l.name] = {}
+                for v,w in zip(vs,ws):
+                    vn = v.name
+                    self.weights[l.name][vn] = w
 
     def on_epoch_end(self, epoch, logs=None):
         '''Dump variables, outputs, loss and metrics.'''
@@ -230,6 +246,18 @@ class CollectorBase(keras.callbacks.Callback, ABC):
 
 class Collector(CollectorBase):
     '''Collect model data during training and store the result to a JSON file.
+    
+    Parameters
+    ----------
+    logfile: str
+        filename where the result will be stored
+
+    add_ext: bool
+        if true .json extension (if not present) is added to logfile
+
+    **kwargs: dict
+        keyword arguments passed to the parent class
+
     Attributes
     ----------
     logfile: str
@@ -238,13 +266,8 @@ class Collector(CollectorBase):
     file: fd
         file descriptor
     '''
-    def __init__(self, logfile, add_ext=True, logs_keys=None, nbins=50,
-        image_data=None, validation_data=None, array_encoding='base64'):
-
-        super(Collector,self).__init__(logs_keys=logs_keys, nbins=nbins,
-            image_data=image_data, array_encoding=array_encoding,
-            validation_data=validation_data)
-
+    def __init__(self, logfile, add_ext=True, **kwargs):
+        super(Collector,self).__init__(**kwargs)
         self.logfile = logfile
 
         if add_ext and not self.logfile.endswith('.json'):
@@ -289,6 +312,17 @@ class Collector(CollectorBase):
 class MongoCollector(Collector):
     '''Collect model data during training and store the result to a MongoDB
     database.
+    
+    Parameters
+    ----------
+    collection_name: str
+        collection name in the Mongo database
+
+    db_name: str
+        database name
+
+    **kwargs: dict
+        keyword arguments passed to the parent class
 
     Attributes
     ----------
@@ -299,28 +333,17 @@ class MongoCollector(Collector):
         collection name in the Mongo database
 
     client: MongoClient
-        mongo client
+        mongoDb client
 
     collection: object
-        mongo collection
-    
-    collection structure
-    ------------
-    "input_data" : [data ...]
-    "layers" : [layers ...],
-    "training" : [epochs ...]
-    "validation" : {...}
+        mongoDb collection
     '''
-    def __init__(self, collection_name, db_name='nnviz_db', logs_keys=None,
-        nbins=50, image_data=None, validation_data=None,
-        array_encoding='base64'):
+    def __init__(self, collection_name, db_name='nnviz_db', **kwargs):
 
         if MongoClient is None:
             raise ImportError('In order to use, install pymongo')
 
-        super(MongoCollector,self).__init__(logs_keys=logs_keys, nbins=nbins,
-            image_data=image_data, array_encoding=array_encoding,
-            validation_data=validation_data)
+        super(MongoCollector,self).__init__(**kwargs)
         
         self.db_name = db_name
         self.collection_name = collection_name

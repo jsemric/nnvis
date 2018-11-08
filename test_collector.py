@@ -1,8 +1,4 @@
 #!/usr/bin/env python
-# TODO
-# projection + add predictions
-# more images/histograms
-# weight dynamics (new feature)
 
 import json
 import os
@@ -10,6 +6,33 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 import base64
+
+from sklearn.decomposition import PCA
+from mpl_toolkits.mplot3d import Axes3D
+
+def get_array(d):
+    shape = d['shape']
+    data = d['data']
+    a = np.frombuffer(base64.b64decode(data), np.float32)
+    return a.reshape(shape)
+
+def plot_val_data(train_end):
+    data = train_end['validation_data']
+    labels = get_array(data['labels'])
+    predictions = get_array(data['predictions'])
+    val_data = get_array(data['val_data'])
+    print(val_data.shape, labels.shape, predictions.shape)
+
+    fig = plt.figure()
+    X = PCA(3).fit_transform(val_data.reshape(val_data.shape[0],-1))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.scatter(X[:,0], X[:,1], X[:,2], c=labels.squeeze(), alpha=0.6)
+    ax.set_xlabel('pca 1')
+    ax.set_ylabel('pca 2')
+    ax.set_zlabel('pca 3')
+    ax.set_title('Projection 3D')
+    fig.savefig(os.path.join('figures','projection3d.png'))
+    # plt.show()
 
 def get_image_data(train_end, nrow=2, ncol=2):
     input_data = train_end['image_data']['input_data']
@@ -26,7 +49,6 @@ def get_image_data(train_end, nrow=2, ncol=2):
         ax.imshow(a[i])
         ax.axis('off')
 
-    os.makedirs('figures', exist_ok=True)
     fig.savefig(os.path.join('figures','input_images.png'))
 
 def get_filtered_image(train_end, layer, n_image, nrow=5, ncol=5):
@@ -45,8 +67,7 @@ def get_filtered_image(train_end, layer, n_image, nrow=5, ncol=5):
         ax.imshow(a[n_image,:,:,i])
         ax.axis('off')
 
-    os.makedirs('figures', exist_ok=True)
-    fig.savefig(os.path.join('figures',f'{layer}_outputs_{n_image}.png'))    
+    fig.savefig(os.path.join('figures',f'{layer}_outputs_{n_image}.png'))
 
 def get_hist(epochs, n_epoch, layer, varname):
     w = epochs[n_epoch]['weights'][layer][varname]
@@ -60,6 +81,7 @@ def get_hist(epochs, n_epoch, layer, varname):
     return hist, bins
 
 def plot_hist(epochs, layer='dense', vname='dense/kernel:0'):
+    plt.figure()
     for e in range(0,7):
         h, b = get_hist(epochs, n_epoch=e, layer=layer, varname=vname)
         # print(np.sum(h))
@@ -67,10 +89,10 @@ def plot_hist(epochs, layer='dense', vname='dense/kernel:0'):
         # plt.fill_between(b[:-1], h, alpha=0.5)
 
     plt.title(f'dense weights') 
-    os.makedirs('figures', exist_ok=True)
     plt.savefig(os.path.join('figures','hist.png'))
 
-def plot_weights(epochs, layer='dense_1', vname='dense_1/kernel:0', nrow=5, ncol=5):
+def plot_weights(epochs, layer='dense_1', vname='dense_1/kernel:0', nrow=5,
+    ncol=5):
     l = []
     for e in range(0, nrow * ncol + 1):
         w = epochs[e]['weights'][layer][vname]
@@ -99,8 +121,10 @@ def plot_ldiff(epochs, layer='dense', vname='dense/kernel:0'):
     for e in epochs:
         diffs.append(e['weights'][layer][vname]['diff'])
 
+    plt.figure()
     plt.fill_between(range(len(diffs)),diffs)
-    plt.show()
+    vname = vname.replace('/','_')
+    plt.savefig(os.path.join('figures',f'{layer}_diff.png'))    
 
 def main():
     # with open('full_weights.json') as f:
@@ -110,10 +134,10 @@ def main():
 
     epochs = j['training']
     train_end = j['train_end']
+    os.makedirs('figures', exist_ok=True)
 
+    plot_val_data(train_end)
     plot_ldiff(epochs)
-    # plot_weights(epochs)
-    return
     plot_hist(epochs)
     get_filtered_image(train_end, layer='conv2d', n_image=2)
     get_filtered_image(train_end, layer='conv2d_1', n_image=2)

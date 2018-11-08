@@ -23,7 +23,7 @@ The `-o` option specifies where the neural network data will be stored, in this 
 
 `$ python cifar_model.py -o nndump.json`
 
-Print the JSON file in the human readable format.
+Print the JSON file in the human readable format (with depth 3).
 
-`$ python print_json nndump.json`
+`$ python print_json.py nndump.json -d 3`
 

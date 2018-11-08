@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-# TODO
-#   add more metrics
-#   training dynamics
 
 import argparse
 import numpy as np
