@@ -91,7 +91,7 @@ def plot_hist(epochs, layer='dense', vname='dense/kernel:0'):
     plt.title(f'dense weights') 
     plt.savefig(os.path.join('figures','hist.png'))
 
-def plot_weights(epochs, layer='dense_1', vname='dense_1/kernel:0', nrow=5,
+def plot_weights(epochs, layer='dense', vname='dense/kernel:0', nrow=5,
     ncol=5):
     l = []
     for e in range(0, nrow * ncol + 1):
