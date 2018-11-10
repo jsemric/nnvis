@@ -15,14 +15,16 @@ library("imager")
 library(reticulate)
 json<- fromJSON(file = "nndump.json")
 df<-json$training
-img<-json[[2]]$image_data
-
+img<-json$train_end$image_data
+val<-json$train_end$validation_data
 ###############################################
 #function get data
 DataFunc <- function(epoch,layer,kernelbias) {
-  histOut<- matrix(nrow = 50,ncol = 1)
-  binOut<- matrix(nrow = 51,ncol = 1)
-  dataOut<- matrix(nrow = 50,ncol = 2)
+  shaH<-df[[1]][[6]][[layer]][[kernelbias]][[1]]$shape
+  shaB<-df[[1]][[6]][[layer]][[kernelbias]][[2]]$shape
+  histOut<- matrix(nrow = shaH,ncol = 1)
+  binOut<- matrix(nrow = shaB,ncol = 1)
+  dataOut<- matrix(nrow = shaH,ncol = 2)
   histData<-base64_dec(df[[epoch]][[6]][[layer]][[kernelbias]][[1]]$data)
   binData<-base64_dec(df[[epoch]][[6]][[layer]][[kernelbias]][[2]]$data)
   shapeH<-df[[epoch]][[6]][[layer]][[kernelbias]][[1]]$shape
@@ -35,19 +37,7 @@ DataFunc <- function(epoch,layer,kernelbias) {
   print(dataOut)
   return(dataOut)
 }
-###########################################################
-#plot each
-#df[epoch][6=weight][1=conv2d,3=cov2d_1,6=dense][1=kernel,2=bias][1=hist,2=bin]
-#PlotEachFunc(1,5,1) #(epoch,layer,kernelbias)
-PlotEachFunc <- function(epochI,layerI,kernelbiasI) {
-  dataO=DataFunc(epochI,layerI,kernelbiasI)
-  histO=dataO[,1]
-  binO=dataO[,2]
-  plot_ly(x=binO, y=histO,z=epochI,type = 'scatter3d' ,mode = 'lines',line=list(width=5))%>%
-    layout(title = 'condv kernel',
-           xaxis = list(range = c(-0.5, 0.5)), 
-           yaxis = list(range = c(0, 12500)))
-}
+
 ###########################################################
 #data for plot All epoch
 #[1=conv2d,3=cov2d_1,6=dense][1=kernel,2=bias]
@@ -55,9 +45,10 @@ PlotEachFunc <- function(epochI,layerI,kernelbiasI) {
 PlotAllEpoch <- function(layerI,kernelbiasI) {
   #get hist & bin_edges All
   epoch=length(df)
-  hist<- matrix(nrow = 50,ncol = epoch)
+  shape<-df[[1]][[6]][[layerI]][[kernelbiasI]][[1]]$shape
+  hist<- matrix(nrow = shape,ncol = epoch)
   hist<- as.data.frame(hist)
-  bin_edges<- matrix(nrow = 50,ncol = epoch)
+  bin_edges<- matrix(nrow = shape,ncol = epoch)
   bin_edges<- as.data.frame(bin_edges)
   #df[i][6=weight][1=conv2d,2=maxpooling,3=cov2d_1,4=flatten,5=dense][1=kernel,2=bias][1=hist,2=bin]
   for(i in 1:epoch){
@@ -80,8 +71,8 @@ PlotAllEpoch <- function(layerI,kernelbiasI) {
   #levels(a) <- c("epoch1", "epoch2", "epoch3", "epoch4", "epoch5", "epoch6", "epoch7", "epoch8", "epoch9", "epoch10")
   plot_ly(x=df1$x, y=df1$y,z=df1$col,color=a,type = 'scatter3d' ,mode = 'lines',line=list(width=5))%>%
     layout(title = '',
-           xaxis = list(range = c(-0.5, 0.5)), 
-           yaxis = list(range = c(0, 12500)))
+           xaxis = list(range = c(min(df1$x), max(df1$x))), 
+           yaxis = list(range = c(min(df1$y), max(df1$y))))
   
 }
 
@@ -102,47 +93,7 @@ PlotScalars <- function(graphI) {
   return (plot_ly(x=val$epoch, y=val$value ,mode = 'lines',line=list(width=5))  )  
 }  
 
-###########################################################
-#data for plot some epoch
-#inEpoch <- c(TRUE,FALSE,TRUE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE)
-#PlotSomeEpoch(inEpoch,1,1) #(epochI,layerI,kernelbiasI) 
-PlotSomeEpoch <- function(epochI,layerI,kernelbiasI) {
-  epoch=length(df)
-  trueCount=sum(epochI, na.rm = TRUE)
-  hist<- matrix(nrow = 50,ncol = trueCount)
-  hist<- as.data.frame(hist)
-  bin_edges<- matrix(nrow = 50,ncol = trueCount)
-  bin_edges<- as.data.frame(bin_edges)
-  k<-1
-  for(i in 1:epoch){
-    if(epochI[i]==TRUE){
-      histbin=DataFunc(i,layerI,kernelbiasI)
-      hist[,k] =histbin[,1]
-      bin_edges[,k] =histbin[,2]
-      k<-k+1
-    }
-  }
-  
-  df1 <- NULL
-  if(trueCount!=0){
-    
-    for(i in 1:trueCount){
-      temp_df <- data.frame(x=bin_edges[,i], y=hist[,i], col=i)
-      df1 <- rbind(df1,temp_df)
-    }
-  }
-  
-  
-  #plot
-  a<-factor(df1$col)
-  list=which(inEpoch==TRUE)
-  levelEpoch=paste("epoch",list )
-  levels(a) <- c(levelEpoch)
-  plot_ly(x=df1$x, y=df1$y,z=df1$col,color=a,type = 'scatter3d' ,mode = 'lines',line=list(width=5))%>%
-    layout(title = 'condv kernel',
-           xaxis = list(range = c(-0.5, 0.5)), 
-           yaxis = list(range = c(0, 12500)))
-}  
+
 #############################################################
 #
 #input image
@@ -153,12 +104,12 @@ PlotInputImg<- function() {
   imgIn=img$input_data
   inShape=imgIn$shape
   inData<-base64_dec(imgIn$data)
-  inOut = readBin(inData, double(), n=inShape[1]*inShape[2]*inShape[3]*inShape[4],size=4)
+  inOut = readBin(inData, double(), n=prod(inShape),size=4)
   inOut =array_reshape(inOut,inShape) #library(reticulate)
   require(grDevices)
   library("imager")
   library(reticulate)
-  par(mfrow=c(1,inShape[1]))  
+  par(mfrow=c(inShape[1]/5,5))  
   for(i in 1:inShape[1]){
     im<-inOut[i,,,]
     getIm<-as.cimg(im)
@@ -170,7 +121,7 @@ PlotInputImg<- function() {
 #
 #Output image
 #lastFill-firstFill no more than 10 no more than 10 img each 
-#[1=conv2d,3=cov2d_1,6=dense]
+#[1=conv2d,2s=cov2d_1]
 #PlotOutputImg(1,11,10) #(layerI,imgI,firstFill,lastFill) 
 #########
 #
@@ -178,7 +129,7 @@ PlotOutputImg<- function(layerI,imgI,firstFill,lastFill) {
   imgOut=img$outputs[[layerI]]
   outShape=imgOut$shape
   outData<-base64_dec(imgOut$data)
-  outOut = readBin(outData, double(), n=outShape[1]*outShape[2]*outShape[3]*outShape[4],size=4)
+  outOut = readBin(outData, double(), n=prod(outShape),size=4)
   outOut =array_reshape(outOut,outShape) #library(reticulate)
   par(mfrow=c(ceiling((lastFill-firstFill)/5),5))  
   for(i in firstFill:lastFill){
@@ -187,6 +138,36 @@ PlotOutputImg<- function(layerI,imgI,firstFill,lastFill) {
     plot(getIm,axes=FALSE)
   }
 }
+##################################################
+# plot val
+
+PlotVal<- function() {
+  labels = val$labels
+  predictions = val$predictions
+  val_data = val$val_data
+  print(val_data$shape)
+  
+  
+  labelsData<-base64_dec(labels$data)
+  shapelabels<-labels$shape
+  labelOut = readBin(labelsData, double(), n=prod(shapelabels),size=4)
+  labelOut =array_reshape(labelOut,shapelabels)
+  
+  valData<-base64_dec(val_data$data)
+  shapeval<-val_data$shape
+  valOut = readBin(valData, double(), n=prod(shapeval),size=4)
+  valOut =array_reshape(valOut,shapeval)
+  
+  getVal =array_reshape(valOut,c(shapeval[1],-1))
+  pca <- princomp(valOut, scores=T, cor=T)
+  pca=array_reshape(pca$score,c(shapeval[1],-1))
+  a <- as.factor(labelOut)
+  plot_ly(x=pca[,1], y=pca[,2],z=pca[,3],type = 'scatter3d',color=a ,alpha=0.6,size=0.5)
+  
+}
+
+
+
 
 #
 #
@@ -195,7 +176,7 @@ PlotOutputImg<- function(layerI,imgI,firstFill,lastFill) {
 # Main 
 #df[epoch][6=weight][1=conv2d,3=cov2d_1,6=dense][1=kernel,2=bias][1=hist,2=bin]
 #PlotEachFunc(1,5,1) #(epoch,layer,kernelbias)
-#PlotAllEpoch(6,1) #(layerI,kernelbiasI)
+#PlotAllEpoch(1,1) #(layerI,kernelbiasI)
 
 #inEpoch <- c(TRUE,FALSE,TRUE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE)
 #PlotSomeEpoch(inEpoch,1,1) #(epochI,layerI,kernelbiasI) 
@@ -206,7 +187,7 @@ PlotOutputImg<- function(layerI,imgI,firstFill,lastFill) {
 #image
 #PlotInputImg()
 
-#[1=conv2d,3=cov2d_1,6=dense]
+#[1=conv2d,2=cov2d_1]
 #lastFill-firstFill no more than 10 
-PlotOutputImg(1,4,1,10) #(layerI,imgI,firstFill,lastFill) 
+#PlotOutputImg(1,4,1,10) #(layerI,imgI,firstFill,lastFill) 
 
