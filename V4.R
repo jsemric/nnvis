@@ -135,6 +135,7 @@ PlotOutputImg<- function(layerI,imgI,firstFill,lastFill) {
   for(i in firstFill:lastFill){
     im<-outOut[imgI,,,i]
     getIm<-as.cimg(im)
+    getIm<-add.colour(getIm, simple = TRUE)
     plot(getIm,axes=FALSE)
   }
 }
@@ -162,7 +163,7 @@ PlotVal<- function() {
   pca <- princomp(valOut, scores=T, cor=T)
   pca=array_reshape(pca$score,c(shapeval[1],-1))
   a <- as.factor(labelOut)
-  plot_ly(x=pca[,1], y=pca[,2],z=pca[,3],type = 'scatter3d',color=a ,alpha=0.6,size=0.5)
+  plot_ly(x=pca[,1], y=pca[,2],z=pca[,3],type = 'scatter3d',color=a ,size=0.5)
   
 }
 
@@ -189,5 +190,5 @@ PlotVal<- function() {
 
 #[1=conv2d,2=cov2d_1]
 #lastFill-firstFill no more than 10 
-#PlotOutputImg(1,4,1,10) #(layerI,imgI,firstFill,lastFill) 
-
+PlotOutputImg(1,4,1,10) #(layerI,imgI,firstFill,lastFill) 
+PlotVal()
