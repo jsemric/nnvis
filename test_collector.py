@@ -9,12 +9,7 @@ import base64
 
 from sklearn.decomposition import PCA
 from mpl_toolkits.mplot3d import Axes3D
-
-def get_array(d):
-    shape = d['shape']
-    data = d['data']
-    a = np.frombuffer(base64.b64decode(data), np.float32)
-    return a.reshape(shape)
+from utils import get_array
 
 def plot_val_data(train_end):
     data = train_end['validation_data']
