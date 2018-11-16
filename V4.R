@@ -167,8 +167,14 @@ PlotVal<- function() {
   
 }
 
-
-
+PlotDiff<- function(layerI,kernelbiasI) {
+  epoch=length(df)
+  difVal<- c()
+  for(i in 1:epoch){
+    difVal<- c(difVal,df[[i]][[6]][[layerI]][[kernelbiasI]]$diff)
+  }
+  plot_ly(x=1:epoch, y=difVal ,mode = 'lines', fill = 'tozeroy',line=list(width=5)) 
+}
 
 #
 #
@@ -190,5 +196,9 @@ PlotVal<- function() {
 
 #[1=conv2d,2=cov2d_1]
 #lastFill-firstFill no more than 10 
-PlotOutputImg(1,4,1,10) #(layerI,imgI,firstFill,lastFill) 
+#PlotOutputImg(1,4,1,10) #(layerI,imgI,firstFill,lastFill) 
+
 #PlotVal()
+
+#PlotDiff(3,1) #layerI,kernelbiasI
+
