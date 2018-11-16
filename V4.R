@@ -177,7 +177,7 @@ PlotVal<- function() {
 # Main 
 #df[epoch][6=weight][1=conv2d,3=cov2d_1,6=dense][1=kernel,2=bias][1=hist,2=bin]
 #PlotEachFunc(1,5,1) #(epoch,layer,kernelbias)
-#PlotAllEpoch(1,1) #(layerI,kernelbiasI)
+#PlotAllEpoch(6,1) #(layerI,kernelbiasI)
 
 #inEpoch <- c(TRUE,FALSE,TRUE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE)
 #PlotSomeEpoch(inEpoch,1,1) #(epochI,layerI,kernelbiasI) 
@@ -191,4 +191,4 @@ PlotVal<- function() {
 #[1=conv2d,2=cov2d_1]
 #lastFill-firstFill no more than 10 
 PlotOutputImg(1,4,1,10) #(layerI,imgI,firstFill,lastFill) 
-PlotVal()
+#PlotVal()
