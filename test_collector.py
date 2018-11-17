@@ -124,7 +124,7 @@ def plot_ldiff(epochs, layer='dense', vname='dense/kernel:0'):
 def main():
     # with open('full_weights.json') as f:
     # with open('sgemm.json') as f:
-    with open('cifar4.json') as f:
+    with open('nndump.json') as f:
         j = json.load(f)
 
     epochs = j['training']
