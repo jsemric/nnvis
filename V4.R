@@ -1,24 +1,17 @@
-#install.packages("plot3D")
-#install.packages("plotly")
-#install.packages("rgl")
-#library(rgl)
-#library(plot3D)
 library(plotly)
 library(shiny)
 library(ggplot2)
-#install.packages("shiny")
 library(jsonlite)
 library(rjson)
 library(reticulate)
 require(grDevices)
 library("imager")
-library(reticulate)
 json<- fromJSON(file = "nndump.json")
 df<-json$training
 img<-json$train_end$image_data
 val<-json$train_end$validation_data
-###############################################
-#function get data
+
+#function get and convert data
 DataFunc <- function(epoch,layer,kernelbias) {
   shaH<-df[[1]][[6]][[layer]][[kernelbias]][[1]]$shape
   shaB<-df[[1]][[6]][[layer]][[kernelbias]][[2]]$shape
@@ -38,10 +31,7 @@ DataFunc <- function(epoch,layer,kernelbias) {
   return(dataOut)
 }
 
-###########################################################
-#data for plot All epoch
-#[1=conv2d,3=cov2d_1,6=dense][1=kernel,2=bias]
-#PlotAllEpoch(1,1)
+#function for plot histogram
 PlotAllEpoch <- function(layerI,kernelbiasI) {
   #get hist & bin_edges All
   epoch=length(df)
@@ -76,11 +66,9 @@ PlotAllEpoch <- function(layerI,kernelbiasI) {
   
 }
 
-###########################################################
-#plot scalar
-#[2=acc,3=loss,4=val_loss,5=val_acc]
-#PlotScalars(3) #(graphI)
-PlotScalars <- function(graphI) {
+
+#function for plot scalar
+PlotScalar <- function(graphI) {
   epoch=length(df)
   val<- matrix(nrow = epoch,ncol = 2)
   val<- as.data.frame(val)
@@ -89,17 +77,24 @@ PlotScalars <- function(graphI) {
     val[i,1]=i
     val[i,2]=df[[i]][[graphI]]
   }
-  
-  return (plot_ly(x=val$epoch, y=val$value ,mode = 'lines',line=list(width=5))  )  
+  return(ggplot(val, aes(x=epoch,y=value))  + geom_line()+scale_x_discrete(limits=seq(0,9))+geom_point())
+  #return (plot_ly(x=val$epoch, y=val$value ,mode = 'lines',line=list(width=5))  )  
 }  
 
+#function for plot all scalars
+PlotScalars <- function() {
+  z<- PlotScalar("loss")
+  
+  z1<-PlotScalar("acc")
+  
+  z2<-PlotScalar("val_loss")
+  
+  z3<-PlotScalar("val_acc")
+  
+  grid.arrange(z,z1,z2,z3,nrow=2,ncol=2)
+}
 
-#############################################################
-#
-#input image
-#PlotInputImg()
-#########
-#
+#function for plot input image
 PlotInputImg<- function() {
   imgIn=img$input_data
   inShape=imgIn$shape
@@ -116,15 +111,10 @@ PlotInputImg<- function() {
     plot(getIm,axes=FALSE)
   }
 }
-#
-#############################################################
-#
-#Output image
+
+#function for plot output image
 #lastFill-firstFill no more than 10 no more than 10 img each 
-#[1=conv2d,2s=cov2d_1]
-#PlotOutputImg(1,11,10) #(layerI,imgI,firstFill,lastFill) 
-#########
-#
+
 PlotOutputImg<- function(layerI,imgI,firstFill,lastFill) {
   imgOut=img$outputs[[layerI]]
   outShape=imgOut$shape
@@ -139,8 +129,8 @@ PlotOutputImg<- function(layerI,imgI,firstFill,lastFill) {
     plot(getIm,axes=FALSE)
   }
 }
-##################################################
-# plot val
+
+# function for plot val data
 
 PlotVal<- function() {
   labels = val$labels
@@ -167,6 +157,7 @@ PlotVal<- function() {
   
 }
 
+#function for plot diff
 PlotDiff<- function(layerI,kernelbiasI) {
   epoch=length(df)
   difVal<- c()
@@ -181,15 +172,18 @@ PlotDiff<- function(layerI,kernelbiasI) {
 #############################################################
 #
 # Main 
-#df[epoch][6=weight][1=conv2d,3=cov2d_1,6=dense][1=kernel,2=bias][1=hist,2=bin]
+#df[epoch][6=weight][1=conv2d,3=cov2d_1,7=dense][1=kernel,2=bias][1=hist,2=bin]
 #PlotEachFunc(1,5,1) #(epoch,layer,kernelbias)
-#PlotAllEpoch(6,1) #(layerI,kernelbiasI)
+#PlotAllEpoch("dense","dense/kernel:0") #(layerI,kernelbiasI)
 
 #inEpoch <- c(TRUE,FALSE,TRUE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE,FALSE)
 #PlotSomeEpoch(inEpoch,1,1) #(epochI,layerI,kernelbiasI) 
 
 #[2=acc,3=loss,4=val_loss,5=val_acc]
-#PlotScalars(3) #(graphI)
+#PlotScalars("acc") #(graphI)
+# plot loss
+
+#PlotScalars()
 
 #image
 #PlotInputImg()
@@ -200,5 +194,5 @@ PlotDiff<- function(layerI,kernelbiasI) {
 
 #PlotVal()
 
-#PlotDiff(3,1) #layerI,kernelbiasI
+#PlotDiff(1,1) #layerI,kernelbiasI
 
