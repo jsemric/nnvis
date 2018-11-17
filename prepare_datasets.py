@@ -15,10 +15,10 @@ except ImportError:
 def load_cifar4():
     dir_path = os.path.join('data','cifar10_4')
 
-    if not os.path.isdir(dir_path):
+    if not os.path.exists(os.path.join(dir_path, 'y_val.npy')):
         os.makedirs(dir_path)
         # car, truck, frog, cat
-        x_train, y_train, x_val, y_val = prepare_cifar10(classes=[1,9,3,6])
+        x_train, y_train, x_val, y_val = load_cifar10(classes=[1,9,3,6])
         np.save(os.path.join(dir_path, 'x_train.npy'), x_train)
         np.save(os.path.join(dir_path, 'y_train.npy'), y_train)
         np.save(os.path.join(dir_path, 'x_val.npy'), x_val)
