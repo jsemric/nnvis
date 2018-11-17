@@ -58,7 +58,7 @@ def main():
     batch_size = args.batch_size
 
     x_train, y_train, x_val, y_val = load_cifar4()
-    x_val, y_val = x_val[:100], y_val[:100]
+    # x_val, y_val = x_val[:100], y_val[:100]
 
     print('training instances:  ', x_train.shape[0])
     print('validation instances:', x_val.shape[0])
@@ -82,6 +82,8 @@ def main():
         keras.layers.Conv2D(64, kernel_size=(3,3), activation='relu',
             padding='same', input_shape=SHAPE),
         keras.layers.MaxPool2D(),
+        keras.layers.Conv2D(32, kernel_size=(1,1), activation='relu',
+            padding='same'),
         keras.layers.Conv2D(96, kernel_size=(3,3), activation='relu',
             padding='same'),
         keras.layers.MaxPool2D(),

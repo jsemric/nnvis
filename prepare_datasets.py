@@ -10,7 +10,7 @@ try:
     from tensorflow.keras.datasets import cifar10
 except ImportError:
     import tensorflow as tf
-    cifar10 = tensorflow.keras.datasets.cifar10
+    cifar10 = tf.keras.datasets.cifar10
 
 def load_cifar4():
     dir_path = os.path.join('data','cifar10_4')
@@ -18,6 +18,7 @@ def load_cifar4():
     if not os.path.exists(os.path.join(dir_path, 'y_val.npy')):
         os.makedirs(dir_path)
         # car, truck, frog, cat
+        print('Downloading CIFAR10 dataset ...')
         x_train, y_train, x_val, y_val = load_cifar10(classes=[1,9,3,6])
         np.save(os.path.join(dir_path, 'x_train.npy'), x_train)
         np.save(os.path.join(dir_path, 'y_train.npy'), y_train)
@@ -48,7 +49,7 @@ def load_sgemm():
     csv_path = os.path.join('data','sgemm_product.csv')
 
     if not os.path.exists(csv_path):
-        print('Downloading dataset ...')
+        print('Downloading SGEMM dataset ...')
         url = 'http://archive.ics.uci.edu/ml/machine-learning-databases/00440/'\
             'sgemm_product_dataset.zip'
 
