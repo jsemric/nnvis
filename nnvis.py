@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import re
 
+from random import sample
 from collections import defaultdict
 from sklearn.decomposition import PCA
 from mpl_toolkits.mplot3d import Axes3D
@@ -127,6 +128,13 @@ def plot_projection(train_end, outdir, dim3=False):
     fig = plt.figure()
     n = 3 if dim3 else 2
     X = PCA(n).fit_transform(val_data.reshape(val_data.shape[0],-1))
+    n = X.shape[0]
+
+    # take only 1000 samples
+    if n > 1000:
+        ix = sample(range(n), 1000)
+        X = X[ix]
+        labels = labels[ix]
     
     if dim3:
         ax = fig.add_subplot(111, projection='3d')
@@ -187,7 +195,10 @@ def main():
     plot_metrics(j['training'], args.output)
     plot_weights_distributions(j['training'], j['train_end']['layers'],
         args.output)
-    plot_filters(j['train_end'], args.output)
+
+    if 'image_data' in j['train_end']:
+        plot_filters(j['train_end'], args.output)
+
     plot_projection(j['train_end'], args.output, args.p3d)
     plot_weight_dynamics(j['training'], j['train_end']['layers'], args.output)
 

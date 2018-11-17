@@ -18,7 +18,6 @@ def load_cifar4():
     if not os.path.exists(os.path.join(dir_path, 'y_val.npy')):
         os.makedirs(dir_path)
         # car, truck, frog, cat
-        print('Downloading CIFAR10 dataset ...')
         x_train, y_train, x_val, y_val = load_cifar10(classes=[1,9,3,6])
         np.save(os.path.join(dir_path, 'x_train.npy'), x_train)
         np.save(os.path.join(dir_path, 'y_train.npy'), y_train)
