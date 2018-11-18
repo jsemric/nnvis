@@ -1,3 +1,5 @@
+library(ggplot2)
+library(gridExtra)
 library(plotly)
 library(shiny)
 library(ggplot2)
@@ -183,7 +185,7 @@ PlotDiff<- function(layerI,kernelbiasI) {
 #PlotScalars("acc") #(graphI)
 # plot loss
 
-#PlotScalars()
+PlotScalars()
 
 #image
 #PlotInputImg()
