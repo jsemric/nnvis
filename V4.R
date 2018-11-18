@@ -194,5 +194,5 @@ PlotDiff<- function(layerI,kernelbiasI) {
 
 #PlotVal()
 
-#PlotDiff(1,1) #layerI,kernelbiasI
+#PlotDiff("conv2d",1) #layerI,kernelbiasI
 
