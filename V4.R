@@ -120,7 +120,7 @@ PlotInputImg<- function() {
 
 #function for plot output image
 #lastFill-firstFill no more than 10 no more than 10 img each 
-
+#outputs': {'conv2d': 'X', 'conv2d_1': 'X'}}
 PlotOutputImg<- function(layerI,imgI,firstFill,lastFill) {
   imgOut=img$outputs[[layerI]]
   outShape=imgOut$shape
