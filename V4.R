@@ -8,11 +8,14 @@ library(rjson)
 library(reticulate)
 require(grDevices)
 library("imager")
-json<- fromJSON(file = "nndump.json")
+#json<- fromJSON(file = "nndump.json")
+json<- fromJSON(file = "cifar4.json")
+#json<- fromJSON(file = "sgemm.json")
 df<-json$training
 img<-json$train_end$image_data
 val<-json$train_end$validation_data
-
+numEpoch=length(df)
+numIng=img[["input_data"]][["shape"]][[1]]
 #function get and convert data
 DataFunc <- function(epoch,layer,kernelbias) {
   shaH<-df[[1]][[6]][[layer]][[kernelbias]][[1]]$shape
@@ -121,23 +124,32 @@ PlotInputImg<- function() {
 #function for plot output image
 #lastFill-firstFill no more than 10 no more than 10 img each 
 #outputs': {'conv2d': 'X', 'conv2d_1': 'X'}}
-PlotOutputImg<- function(layerI,imgI,firstFill,lastFill) {
+PlotOutputImg<- function(layerI,imgI) {
   imgOut=img$outputs[[layerI]]
   outShape=imgOut$shape
   outData<-base64_dec(imgOut$data)
   outOut = readBin(outData, double(), n=prod(outShape),size=4)
   outOut =array_reshape(outOut,outShape) #library(reticulate)
-  par(mfrow=c(ceiling((lastFill-firstFill)/5),5))  
-  for(i in firstFill:lastFill){
-    im<-outOut[imgI,,,i]
-    getIm<-as.cimg(im)
-    getIm<-add.colour(getIm, simple = TRUE)
-    plot(getIm,axes=FALSE)
+  im<-vector()
+  i<-1
+  for(x in 1:8){
+    im<-rbind(im,outOut[imgI,,,i])
+    i=i+1
   }
+  for(y in 1:(round(outShape[4]/8)-1)){
+    im1<-vector()
+    for(x in 1:8){
+      im1<-rbind(im1,outOut[imgI,,,i])
+      i=i+1
+    }
+    im<-cbind(im,im1)
+  }
+  getIm<-as.cimg(im)
+  getIm<-add.colour(getIm, simple = TRUE)
+  plot(getIm,axes=FALSE)
 }
 
 # function for plot val data
-
 PlotVal<- function() {
   labels = val$labels
   predictions = val$predictions
@@ -160,17 +172,19 @@ PlotVal<- function() {
   pca=array_reshape(pca$score,c(shapeval[1],-1))
   a <- as.factor(labelOut)
   plot_ly(x=pca[,1], y=pca[,2],z=pca[,3],type = 'scatter3d',color=a ,size=0.5)
-  
 }
 
 #function for plot diff
-PlotDiff<- function(layerI,kernelbiasI) {
+PlotMADiff<- function(layerI,kernelbiasI) {
+  #print(df[[1]][[6]][[ "dense"]])
   epoch=length(df)
   difVal<- c()
   for(i in 1:epoch){
     difVal<- c(difVal,df[[i]][[6]][[layerI]][[kernelbiasI]]$diff)
+    #print(difVal)
   }
-  plot_ly(x=1:epoch, y=difVal ,mode = 'lines', fill = 'tozeroy',line=list(width=5)) 
+
+  plot_ly(x=1:epoch, y=difVal ,mode = 'lines', fill = 'tozeroy',line=list(width=5))
 }
 
 #
@@ -189,7 +203,7 @@ PlotDiff<- function(layerI,kernelbiasI) {
 #PlotScalars("acc") #(graphI)
 # plot loss
 
-PlotScalars()
+#PlotScalars()
 
 #image
 #PlotInputImg()
@@ -197,8 +211,8 @@ PlotScalars()
 #[1=conv2d,2=cov2d_1]
 #lastFill-firstFill no more than 10 
 #PlotOutputImg(1,4,1,10) #(layerI,imgI,firstFill,lastFill) 
-
+PlotOutputImg3(1,4)
 #PlotVal()
 
-#PlotDiff("conv2d",1) #layerI,kernelbiasI
+#PlotMADiff("dense","dense/kernel:0") #layerI,kernelbiasI
 
