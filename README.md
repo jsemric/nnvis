@@ -40,6 +40,6 @@ Produce graphs and images from the collected data. The outputs are saved in the 
 The output directory will contain the following subdirectories:
  - learning_curve (metrics and losses)
  - histograms     (distribution of weights)
- - filters
+ - filters        (outputs of convolutional layers)
  - projection     (projection of validation data)
  - mean_abs_diff  (mean absolute difference of weights between epochs)

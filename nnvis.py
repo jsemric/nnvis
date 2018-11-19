@@ -52,7 +52,8 @@ def plot_weights_distributions(epochs, layers, outdir):
     for e in epochs:
         for l in layers:
             for k,v in e['weights'][l].items():
-                d[k].append(v)
+                if 'bias' not in k:
+                    d[k].append(v)
 
     path = os.path.join(outdir, 'histograms')
     os.makedirs(path, exist_ok=True)
@@ -65,9 +66,11 @@ def plot_weights_distributions(epochs, layers, outdir):
         x = get_array(v[0]['bin_edges'])[:-1]
         c = np.linspace(1,0.75,len(v))
         displacement = np.linspace(150,0,len(v))
+        max_ = get_array(v[0]['hist']).max()
 
         for j,i in enumerate(v):
             y = get_array(i['hist'])
+            y = y / max_ * 60
             d = displacement[j]
             plt.fill_between(x, y + d, d, facecolor=cmap(c[j]), 
                 linewidth=0.2, edgecolor='k')
@@ -83,6 +86,7 @@ def plot_weights_distributions(epochs, layers, outdir):
         plt.title(k)
         fname = re.sub('[/:]', '_',k)
         plt.savefig(os.path.join(path, f'hist-{fname}.png'))
+        # plt.show()
 
 def plot_filters(train_end, outdir, nrow=6, ncol=6):
     outputs = train_end['image_data']['outputs']
@@ -205,15 +209,15 @@ def main():
 
     os.makedirs(args.output, exist_ok=True)
 
-    plot_metrics(j['training'], args.output)
+    # plot_metrics(j['training'], args.output)
     plot_weights_distributions(j['training'], j['train_end']['layers'],
         args.output)
 
     if 'image_data' in j['train_end']:
         plot_filters(j['train_end'], args.output)
 
-    plot_projection(j['train_end'], args.output, args.p3d)
-    plot_weight_dynamics(j['training'], j['train_end']['layers'], args.output)
+    # plot_projection(j['train_end'], args.output, args.p3d)
+    # plot_weight_dynamics(j['training'], j['train_end']['layers'], args.output)
 
 if __name__ == '__main__':
     main()

@@ -1,6 +1,3 @@
-# TODO
-# better binning
-
 import json
 import base64
 import numpy as np
