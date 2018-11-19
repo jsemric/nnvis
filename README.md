@@ -38,7 +38,7 @@ Produce and store graphs and images from the collected data.
 `$ python nnvis.py cifar4.json`
 
 The result directory structure will look like this:
-`    out
+    out
        \- learning_curve (metrics and losses)
        \- histograms     (distribution of weights)
        \- filters
@@ -47,4 +47,4 @@ The result directory structure will look like this:
                   \- layer1 - {img}_{id}
                   \- ...
        \- projection     (projection of validation data)
-       \- mean_abs_diff  (mean absolute difference of weights between epochs)`
+       \- mean_abs_diff  (mean absolute difference of weights between epochs)
