@@ -70,28 +70,32 @@ PlotAllEpoch <- function(layerI,kernelbiasI) {
 
 
 #function for plot scalar
-PlotScalar <- function(graphI) {
+PlotScalar <- function() {
   epoch=length(df)
-  val<- matrix(nrow = epoch,ncol = 2)
+  val<- matrix(nrow = epoch,ncol = 5)
   val<- as.data.frame(val)
-  names(val) <- c("epoch", "value")
+  names(val) <- c("epoch", "acc","val_acc","loss","val_loss")
   for(i in 1:epoch){
     val[i,1]=i
-    val[i,2]=df[[i]][[graphI]]
+    val[i,2]=df[[i]][["acc"]]
+    val[i,3]=df[[i]][["val_acc"]]
+    val[i,4]=df[[i]][["loss"]]
+    val[i,5]=df[[i]][["val_loss"]]
   }
-  return(ggplot(val, aes(x=epoch,y=value))  + geom_line()+scale_x_discrete(limits=seq(0,9))+geom_point())
+  return(val)
   #return (plot_ly(x=val$epoch, y=val$value ,mode = 'lines',line=list(width=5))  )  
 }  
 
 #function for plot all scalars
 PlotScalars <- function() {
-  z<- PlotScalar("loss")
+  val<-PlotScalar()
+  z<- ggplot(val, aes(x=epoch,y=acc))  + geom_line()+scale_x_discrete(limits=seq(0,9))+geom_point()
   
-  z1<-PlotScalar("acc")
+  z1<-ggplot(val, aes(x=epoch,y=val_acc))  + geom_line()+scale_x_discrete(limits=seq(0,9))+geom_point()
   
-  z2<-PlotScalar("val_loss")
+  z2<-ggplot(val, aes(x=epoch,y=loss))  + geom_line()+scale_x_discrete(limits=seq(0,9))+geom_point()
   
-  z3<-PlotScalar("val_acc")
+  z3<-ggplot(val, aes(x=epoch,y=val_loss))  + geom_line()+scale_x_discrete(limits=seq(0,9))+geom_point()
   
   grid.arrange(z,z1,z2,z3,nrow=2,ncol=2)
 }
