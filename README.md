@@ -33,18 +33,13 @@ Print the JSON file in the human readable format (with depth 3).
 
 `$ python print_json.py nndump.json -d 3`
 
-Produce and store graphs and images from the collected data.
+Produce graphs and images from the collected data. The outputs are saved in the `out` directory by default.
 
 `$ python nnvis.py cifar4.json`
 
-The result directory structure will look like this:
-    out
-       \- learning_curve (metrics and losses)
-       \- histograms     (distribution of weights)
-       \- filters
-                  \- images              (input images)
-                  \- layer0 - {img}_{id} (outputs of layer0)
-                  \- layer1 - {img}_{id}
-                  \- ...
-       \- projection     (projection of validation data)
-       \- mean_abs_diff  (mean absolute difference of weights between epochs)
+The output directory will contain the following subdirectories:
+ - learning_curve (metrics and losses)
+ - histograms     (distribution of weights)
+ - filters
+ - projection     (projection of validation data)
+ - mean_abs_diff  (mean absolute difference of weights between epochs)
