@@ -65,9 +65,9 @@ def main():
 
     # relabel
     y_train[y_train == 9] = 2
-    y_train[y_train == 6] = 1
+    y_train[y_train == 6] = 0
     y_val[y_val == 9] = 2
-    y_val[y_val == 6] = 1
+    y_val[y_val == 6] = 0
 
     # print(y_val.dtype)
     if args.inspect is not None:
