@@ -19,6 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import re
 
+from matplotlib import cm
 from random import sample
 from collections import defaultdict
 from sklearn.decomposition import PCA
@@ -56,15 +57,27 @@ def plot_weights_distributions(epochs, layers, outdir):
     path = os.path.join(outdir, 'histograms')
     os.makedirs(path, exist_ok=True)
 
+    # cmap = cm.get_cmap('Greens')
+    cmap = cm.get_cmap('PRGn')
+    
     for k,v in d.items():
         fig = plt.figure()
         x = get_array(v[0]['bin_edges'])[:-1]
+        c = np.linspace(1,0.75,len(v))
+        displacement = np.linspace(150,0,len(v))
+
         for j,i in enumerate(v):
             y = get_array(i['hist'])
-            plt.fill_between(x, y/y.max() + 1.1*j, 1.1*j, color='C0', alpha=.7)
+            d = displacement[j]
+            plt.fill_between(x, y + d, d, facecolor=cmap(c[j]), 
+                linewidth=0.2, edgecolor='k')
 
-        plt.tick_params(axis='y', which='both', bottom=False, top=False,
-            labelbottom=False)
+        # https://stackoverflow.com/questions/14908576/how-to-remove-frame-from-
+        # matplotlib-pyplot-figure-vs-matplotlib-figure-frame
+        for spine in plt.gca().spines.values():
+            spine.set_visible(False)
+
+        plt.axes().get_yaxis().set_ticks([])
         plt.ylabel('epochs')
         plt.xlabel('weights values')
         plt.title(k)

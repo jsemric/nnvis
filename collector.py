@@ -1,3 +1,6 @@
+# TODO
+# better binning
+
 import json
 import base64
 import numpy as np
@@ -171,7 +174,7 @@ class CollectorBase(keras.callbacks.Callback, ABC):
                 vn = v.name
 
                 if vn not in self.ranges:
-                    std = w.std()
+                    std = 6*w.std()
                     self.ranges[vn] = (w.min() - std, w.max() + std)
 
                 if self.dump_weights:
