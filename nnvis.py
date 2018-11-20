@@ -209,15 +209,15 @@ def main():
 
     os.makedirs(args.output, exist_ok=True)
 
-    # plot_metrics(j['training'], args.output)
+    plot_metrics(j['training'], args.output)
     plot_weights_distributions(j['training'], j['train_end']['layers'],
         args.output)
 
     if 'image_data' in j['train_end']:
         plot_filters(j['train_end'], args.output)
 
-    # plot_projection(j['train_end'], args.output, args.p3d)
-    # plot_weight_dynamics(j['training'], j['train_end']['layers'], args.output)
+    plot_projection(j['train_end'], args.output, args.p3d)
+    plot_weight_dynamics(j['training'], j['train_end']['layers'], args.output)
 
 if __name__ == '__main__':
     main()
