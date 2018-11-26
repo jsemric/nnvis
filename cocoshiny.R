@@ -83,7 +83,7 @@ ui<- fluidPage(
               ############################################   2016 ################### ######################################################
                tabPanel(title = "Diff",
                         sidebarLayout(
-                          sidebarPanel(("whtdasgdasgdajs"),
+                          sidebarPanel((""),
                                        selectInput("layer3","select layer",
                                                    choices  = c("dense","conv2d_1","conv2d")),
                                        #selectInput("layer1","select YOUR fuckingSHIT",choices = c("1"=1,"2"=2,"3"=3,"4"=4,"5"=5,"6"=6,"7"=7,"8"=8,"9"=9,"10"=10)),

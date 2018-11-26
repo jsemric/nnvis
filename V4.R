@@ -171,7 +171,8 @@ PlotVal<- function() {
   pca <- princomp(valOut, scores=T, cor=T)
   pca=array_reshape(pca$score,c(shapeval[1],-1))
   a <- as.factor(labelOut)
-  plot_ly(x=pca[,1], y=pca[,2],z=pca[,3],type = 'scatter3d',color=a ,size=0.5)
+  plot_ly(x=pca[,1], y=pca[,2],z=pca[,3],type = 'scatter3d',color=a ,size=0.5)%>%
+    layout(showlegend = FALSE)
 }
 
 #function for plot diff
@@ -211,7 +212,7 @@ PlotMADiff<- function(layerI,kernelbiasI) {
 #[1=conv2d,2=cov2d_1]
 #lastFill-firstFill no more than 10 
 #PlotOutputImg(1,4,1,10) #(layerI,imgI,firstFill,lastFill) 
-PlotOutputImg3(1,4)
+#PlotOutputImg3(1,4)
 #PlotVal()
 
 #PlotMADiff("dense","dense/kernel:0") #layerI,kernelbiasI
