@@ -64,7 +64,7 @@ ui<- fluidPage(
                                               sidebarPanel(("select yo shits"),
                                                            selectInput("piclayer", "select  a layer",
                                                                        choices  = c("conv2d_1","conv2d")),
-                                                           selectInput("pic","select YOUR fuckingSHIT",
+                                                           selectInput("pic","select imageT",
                                                                        choices = 1:numIng),
                                                            conditionalPanel(condition="$('html').hasClass('shiny-busy')",
                                                                             tags$div("Loading...",id="loadmessage")
