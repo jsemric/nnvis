@@ -42,6 +42,8 @@ def main():
     parser.add_argument('--viz', type=int, default=10, metavar='N',
         help='number of validation instances used for visualization '
         '(default 10)')
+    parser.add_argument('--sgd', action='store_true',
+        help='use SGD optimizer instead of Adam')
     parser.add_argument('-v','--verbose', type=int, default=1,
         help='control verbosity of training (default 1)')
 
@@ -138,8 +140,12 @@ def main():
         height_shift_range=0.2, horizontal_flip=True)
     gen = datagen.flow(x_train, y_train, batch_size=batch_size)
     
+    opt = 'adam'
+    if args.sgd:
+        opt = tf.train.GradientDescentOptimizer(learning_rate=0.001)
+
     model.compile(loss='sparse_categorical_crossentropy', metrics=['accuracy'],
-        optimizer='adam')
+        optimizer=opt)
     model.fit_generator(gen, steps_per_epoch=n_steps, epochs=n_epochs,
         validation_data=[x_val, y_val], callbacks=callbacks,
         verbose=args.verbose)
