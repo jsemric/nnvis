@@ -117,9 +117,17 @@ PlotInputImg<- function() {
   for(i in 1:inShape[1]){
     im<-inOut[i,,,]
     getIm<-as.cimg(im)
+    getIm<-imrotate(getIm, 90)
     plot(getIm,axes=FALSE)
   }
 }
+imgOut=img$outputs[[1]]
+outShape=imgOut$shape
+outData<-base64_dec(imgOut$data)
+outOut = readBin(outData, double(), n=prod(outShape),size=4)
+outOut =array_reshape(outOut,outShape) #library(reticulate)
+
+rotate <- function(x) t(apply(x, 2, rev))
 
 #function for plot output image
 #lastFill-firstFill no more than 10 no more than 10 img each 
@@ -133,13 +141,17 @@ PlotOutputImg<- function(layerI,imgI) {
   im<-vector()
   i<-1
   for(x in 1:8){
-    im<-rbind(im,outOut[imgI,,,i])
+    outi<-outOut[imgI,,,i]
+    outi<-rotate(rotate(rotate(outi)))
+    im<-rbind(im,outi)
     i=i+1
   }
   for(y in 1:(round(outShape[4]/8)-1)){
     im1<-vector()
     for(x in 1:8){
-      im1<-rbind(im1,outOut[imgI,,,i])
+      outi<-outOut[imgI,,,i]
+      outi<-rotate(rotate(rotate(outi)))
+      im1<-rbind(im1,outi)
       i=i+1
     }
     im<-cbind(im,im1)
