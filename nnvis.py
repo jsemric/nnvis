@@ -14,7 +14,6 @@
 import argparse
 import json
 import os
-import seaborn as sns
 import matplotlib.pyplot as plt
 import numpy as np
 import re
@@ -25,9 +24,8 @@ from collections import defaultdict
 from sklearn.decomposition import PCA
 from mpl_toolkits.mplot3d import Axes3D
 from utils import get_array
-from pprint import pprint
 
-def plot_metrics(epochs, outdir):
+def get_metrics(epochs):
     keys = [k for k,v in epochs[0].items() if type(v) == float]
     d = defaultdict(list)
 
@@ -35,11 +33,15 @@ def plot_metrics(epochs, outdir):
         for k in keys:
             d[k].append(e[k])
 
+    return d
+
+def plot_metrics(epochs, outdir):
+    d = get_metrics(epochs)
     path = os.path.join(outdir, 'learning_curve')
     os.makedirs(path, exist_ok=True)
 
-    for k in keys:
-        plt.plot(d[k])
+    for k,v in d.items():
+        plt.plot(v)
         plt.title(k)
         plt.xlabel('epochs')
         plt.ylabel(k)
@@ -214,22 +216,16 @@ def plot_weight_dynamics(epochs, layers, outdir):
         plt.savefig(os.path.join(path, f'mad-{fname}.png'))
 
 def compare_metrics(inputs, outdir):
+    # double dictionary
     dd = {}
     for i in inputs:
         with open(i) as f:
             j = json.load(f)
+            epochs = j['training']
+            dd[i] = get_metrics(epochs)
 
-        epochs = j['training']
-        keys = [k for k,v in epochs[0].items() if type(v) == float]
-
-        d = defaultdict(list)
-
-        for e in epochs:
-            for k in keys:
-                d[k].append(e[k])
-
-        dd[i] = d
-
+    # just keep metrics from the last dump
+    keys = dd[i].keys()
     path = os.path.join(outdir, 'model_comparison')
     os.makedirs(path, exist_ok=True)
 
@@ -264,7 +260,7 @@ def main():
             compare_metrics(args.input, args.output)
         else:
             if len(args.input) > 1:
-                print('to compare multiple model run with --cmp option')
+                print('to compare multiple models run with the --cmp option')
             dump = args.input[0]
 
             with open(dump) as f:
