@@ -45,6 +45,8 @@ def main():
 
     if args.summary:
         print(model.summary())
+        keras.utils.plot_model(model, to_file='sgemm-model.png',
+            show_shapes=True, show_layer_names=False)
         return
    
     logs_keys = ['mean_absolute_error', 'val_mean_absolute_error', 'val_loss']

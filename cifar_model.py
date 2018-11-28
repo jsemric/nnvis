@@ -111,6 +111,8 @@ def main():
 
     if args.summary:
         print(model.summary())
+        keras.utils.plot_model(model, to_file='cifar4-model.png',
+            show_shapes=True, show_layer_names=False)
         return
 
     if args.viz > x_val.shape[0]:

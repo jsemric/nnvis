@@ -25,6 +25,7 @@ from collections import defaultdict
 from sklearn.decomposition import PCA
 from mpl_toolkits.mplot3d import Axes3D
 from utils import get_array
+from pprint import pprint
 
 def plot_metrics(epochs, outdir):
     keys = [k for k,v in epochs[0].items() if type(v) == float]
@@ -139,12 +140,16 @@ def plot_filters(train_end, outdir, nrow=6, ncol=6):
 def plot_projection(train_end, outdir, dim3=False):
     data = train_end['validation_data']
     labels = get_array(data['labels'])
-    predictions = get_array(data['predictions'])
+    preds = get_array(data['predictions'])
     val_data = get_array(data['val_data'])
 
+    if len(preds.shape) > 1 and preds.shape[1] > 1:
+        # turn probabilities into labels
+        preds = np.argmax(preds,axis=1)
+
     fig = plt.figure()
-    n = 3 if dim3 else 2
-    X = PCA(n).fit_transform(val_data.reshape(val_data.shape[0],-1))
+    d = 3 if dim3 else 2
+    X = PCA(d).fit_transform(val_data.reshape(val_data.shape[0],-1))
     n = X.shape[0]
 
     # take only 1000 samples
@@ -152,20 +157,33 @@ def plot_projection(train_end, outdir, dim3=False):
         ix = sample(range(n), 1000)
         X = X[ix]
         labels = labels[ix]
+        preds = preds[ix]
     
     if dim3:
-        ax = fig.add_subplot(111, projection='3d')
-        ax.scatter(X[:,0], X[:,1], X[:,2], c=labels.squeeze(), alpha=0.6)
-        ax.set_zlabel('pca 3')
-    else:
-        ax = fig.add_subplot(111)
-        ax.scatter(X[:,0], X[:,1], c=labels.squeeze(), alpha=0.6)
-        ax.grid()
+        ax1 = fig.add_subplot(121, projection='3d')
+        ax1.scatter(X[:,0], X[:,1], X[:,2], c=labels.squeeze(), alpha=0.6)
+        ax1.set_zlabel('pca 3')
 
-    ax.set_xlabel('pca 1')
-    ax.set_ylabel('pca 2')
-    
-    ax.set_title(f'Projection {n}D')
+        ax2 = fig.add_subplot(122, projection='3d')
+        ax2.scatter(X[:,0], X[:,1], X[:,2], c=preds.squeeze(), alpha=0.6)
+        ax2.set_zlabel('pca 3')
+    else:
+        ax1 = fig.add_subplot(121)
+        ax1.scatter(X[:,0], X[:,1], c=labels.squeeze(), alpha=0.6)
+        ax1.grid()
+
+        ax2 = fig.add_subplot(122)
+        ax2.scatter(X[:,0], X[:,1], c=preds.squeeze(), alpha=0.6)
+        ax2.grid()
+
+    ax1.set_title('original')
+    ax1.set_xlabel('pca 1')
+    ax1.set_ylabel('pca 2')
+    ax2.set_title('model')
+    ax2.set_xlabel('pca 1')
+    ax2.set_ylabel('pca 2')
+    # fig.suptitle(f'Projection {d}D')
+    plt.tight_layout()
     path = os.path.join(outdir,'projection')
     os.makedirs(path, exist_ok=True)
     fig.savefig(os.path.join(path, 'projection.png'))
@@ -195,29 +213,76 @@ def plot_weight_dynamics(epochs, layers, outdir):
         fname = re.sub('[/:]', '_',k)
         plt.savefig(os.path.join(path, f'mad-{fname}.png'))
 
+def compare_metrics(inputs, outdir):
+    dd = {}
+    for i in inputs:
+        with open(i) as f:
+            j = json.load(f)
+
+        epochs = j['training']
+        keys = [k for k,v in epochs[0].items() if type(v) == float]
+
+        d = defaultdict(list)
+
+        for e in epochs:
+            for k in keys:
+                d[k].append(e[k])
+
+        dd[i] = d
+
+    path = os.path.join(outdir, 'model_comparison')
+    os.makedirs(path, exist_ok=True)
+
+    for key in keys:
+        i = 0
+        for k,v in dd.items():
+            if key in v:
+                plt.plot(v[key], label=k)
+
+        plt.title(key)
+        plt.legend()
+        plt.grid()
+        plt.savefig(os.path.join(path,f'{key}.png'))
+        plt.clf()
+
 def main():
     parser = argparse.ArgumentParser(description='Create images from json.')
-    parser.add_argument('input', type=str, help='input file')
+    parser.add_argument('input', type=str, nargs='+', help='input file')
     parser.add_argument('-o','--output', type=str, help='output directory',
         metavar='FILE', default='out')
     parser.add_argument('-p','--p3d', action='store_true',
         help='use 3D projection instead of 2D')
+    parser.add_argument('-c','--cmp', action='store_true',
+        help='compare multiple models')
     args = parser.parse_args()
 
-    with open(args.input) as f:
-        j = json.load(f)
 
     os.makedirs(args.output, exist_ok=True)
 
-    plot_metrics(j['training'], args.output)
-    plot_weights_distributions(j['training'], j['train_end']['layers'],
-        args.output)
+    try:
+        if len(args.input) > 1 and args.cmp:
+            compare_metrics(args.input, args.output)
+        else:
+            if len(args.input) > 1:
+                print('to compare multiple model run with --cmp option')
+            dump = args.input[0]
 
-    if 'image_data' in j['train_end']:
-        plot_filters(j['train_end'], args.output)
+            with open(dump) as f:
+                j = json.load(f)
 
-    plot_projection(j['train_end'], args.output, args.p3d)
-    plot_weight_dynamics(j['training'], j['train_end']['layers'], args.output)
+            plot_metrics(j['training'], args.output)
+            plot_weights_distributions(j['training'], j['train_end']['layers'],
+                args.output)
+
+            if 'image_data' in j['train_end']:
+                plot_filters(j['train_end'], args.output)
+
+            plot_projection(j['train_end'], args.output, args.p3d)
+            plot_weight_dynamics(j['training'], j['train_end']['layers'],
+                args.output)
+
+    except(Exception) as e:
+        raise RuntimeError("corrupted input file") from e
 
 if __name__ == '__main__':
     main()
