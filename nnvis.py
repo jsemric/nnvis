@@ -1,108 +1,240 @@
 #!/usr/bin/env python
-#
-# outdir
-#        \- learning_curve
-#        \- histograms
-#        \- filters
-#                   \- images
-#                   \- layer0 - {img}_{id}
-#                   \- layer1 - {img}_{id}
-#                   \- ...
-#        \- projection
-#        \- mean_abs_diff
 
 import argparse
 import json
-import os
-import matplotlib.pyplot as plt
+import os, sys
 import numpy as np
-import re
+import matplotlib.pyplot as plt
 
-from matplotlib import cm
+from functools import wraps
 from random import sample
 from collections import defaultdict
 from sklearn.decomposition import PCA
-from mpl_toolkits.mplot3d import Axes3D
 from utils import get_array
 
-def get_metrics(epochs):
-    keys = [k for k,v in epochs[0].items() if type(v) == float]
-    d = defaultdict(list)
+from bokeh.plotting import figure
+from bokeh.palettes import Dark2_5, Magma256
+from bokeh.io import output_file, show, save
+from bokeh.layouts import column, gridplot, row
+from bokeh.models.widgets import Panel, Tabs
 
-    for e in epochs:
-        for k in keys:
-            d[k].append(e[k])
+class Extractor:
 
-    return d
+    def __init__(self, dump):
+        self.epochs = dump['training']
+        self.train_end = dump['train_end']
 
-def plot_metrics(epochs, outdir):
-    d = get_metrics(epochs)
-    path = os.path.join(outdir, 'learning_curve')
-    os.makedirs(path, exist_ok=True)
+    def get_metrics(self):
+        keys = [k for k,v in self.epochs[0].items() if type(v) == float]
+        d = defaultdict(list)
 
-    for k,v in d.items():
-        plt.plot(v)
-        plt.title(k)
-        plt.xlabel('epochs')
-        plt.ylabel(k)
-        plt.grid()
-        plt.savefig(os.path.join(path,f'{k}.png'))
-        plt.clf()
+        for e in self.epochs:
+            for k in keys:
+                d[k].append(e[k])
 
-def plot_weights_distributions(epochs, layers, outdir):
-    d = defaultdict(list)
+        return d
 
-    for e in epochs:
-        for l in layers:
-            for k,v in e['weights'][l].items():
-                if 'bias' not in k:
-                    d[k].append(v)
+    def get_variables(self, ignore_bias=True):
+        d = defaultdict(list)
+        layers = self.train_end['layers']
 
-    path = os.path.join(outdir, 'histograms')
-    os.makedirs(path, exist_ok=True)
+        for e in self.epochs:
+            for l in layers:
+                for k,v in e['weights'][l].items():
+                    if not ignore_bias or 'bias' not in k:
+                        d[k].append(v)
+        return d
 
-    # cmap = cm.get_cmap('Greens')
-    cmap = cm.get_cmap('PRGn')
-    
-    for k,v in d.items():
-        fig = plt.figure()
-        x = get_array(v[0]['bin_edges'])[:-1]
-        c = np.linspace(1,0.75,len(v))
-        displacement = np.linspace(150,0,len(v))
-        max_ = get_array(v[0]['hist']).max()
+    def get_val_data(self):
+        data = self.train_end['validation_data']
+        labels = get_array(data['labels'])
+        preds = get_array(data['predictions'])
+        val_data = get_array(data['val_data'])
+        return val_data, labels, preds
 
-        for j,i in enumerate(v):
-            y = get_array(i['hist'])
-            y = y / max_ * 60
-            d = displacement[j]
-            plt.fill_between(x, y + d, d, facecolor=cmap(c[j]), 
-                linewidth=0.2, edgecolor='k')
+    @staticmethod
+    def load_from_json(fname):
+        return Extractor(json.load(fname))
 
-        # https://stackoverflow.com/questions/14908576/how-to-remove-frame-from-
-        # matplotlib-pyplot-figure-vs-matplotlib-figure-frame
-        for spine in plt.gca().spines.values():
-            spine.set_visible(False)
+class BokenApp:
 
-        plt.axes().get_yaxis().set_ticks([])
-        plt.ylabel('epochs')
-        plt.xlabel('weights values')
-        plt.title(k)
-        fname = re.sub('[/:]', '_',k)
-        plt.savefig(os.path.join(path, f'hist-{fname}.png'))
-        # plt.show()
+    def __init__(self, inputs, output='output-nnvis'):
+        self.inputs = []
+        self.dumps = {}
+        self.output = output
 
-def plot_filters(train_end, outdir, nrow=6, ncol=6):
+        for i in inputs:
+            try:
+                with open(i) as f: 
+                    self.dumps[i] = Extractor.load_from_json(f)
+                self.inputs.append(i)
+            except:
+                print(f'[WARNING] cannot open `{i}` skipping to next')
+                raise
+
+        if len(self.inputs) == 0:
+            raise RuntimeError("at least one valid input required")
+        elif len(self.inputs) > 5:
+            print(f'[WARNING] too many arguments keeping only first 5')
+            self.inputs = self.inputs[:5]
+            self.dumps = {k: v for k,v in self.dumps if k in self.inputs}
+
+        self.colors = {f: Dark2_5[i] for i,f in enumerate(self.inputs)}
+
+    @property
+    def empty(self):
+        return figure()
+
+    def plot_or_empty(func):
+        @wraps(func)
+        def wrapper(self, *args, **kwargs):
+            try:
+                return func(self, *args, **kwargs)
+            except Exception:
+                raise # TODO remove
+                return self.empty
+        return wrapper
+
+    def render(self):
+        output_file(self.output)
+        tab1 = Panel(title='Metrics & Losses', child=self.metrics())
+        tab2 = Panel(title='Histograms', child=self.histograms())
+        tab3 = Panel(title='Mean Absolute Difference',
+            child=self.mean_abs_diff())
+        tab4 = Panel(title='Projection', child=self.projection())
+        tabs = Tabs(tabs=[tab1, tab2, tab3, tab4])
+        show(tabs)
+        # save(tabs)
+
+    @staticmethod
+    def normalize(a, max_val=1.0):
+        a = a - a.min() * 1.
+        return a * max_val / a.max()
+
+    @plot_or_empty
+    def projection(self):
+        rows = []
+        cmap = Magma256
+
+        for i,fname in enumerate(self.inputs):
+            val_data, labels, preds = self.dumps[fname].get_val_data()
+            X = PCA(2).fit_transform(val_data.reshape(val_data.shape[0],-1))
+            n = X.shape[0]
+
+            if len(preds.shape) > 1 and preds.shape[1] > 1:
+                # turn probabilities into labels
+                preds = np.argmax(preds, axis=1)
+
+            if n > 1000:
+                ix = sample(range(n), 1000)
+                X = X[ix]
+                labels = labels[ix]
+                preds = preds[ix]
+
+            labels = BokenApp.normalize(labels, 255).astype(int)
+            preds = BokenApp.normalize(preds, 255).astype(int)
+            color = [cmap[i] for i in labels.squeeze()]
+
+            f1 = figure(title=f'{fname} original')
+            f1.circle(X[:,0], X[:,1], color=color)
+            color = [cmap[i] for i in preds.squeeze()]
+            f2 = figure(title=f'{fname} predictions')
+            f2.circle(X[:,0], X[:,1], color=color)
+            # rows.append(column(f1,f2))
+            rows.append(f1)
+            rows.append(f2)
+
+        return gridplot(rows, ncols=2)
+
+    @plot_or_empty
+    def mean_abs_diff(self):
+        # iterate over all inputs
+        diffs = defaultdict(list)
+
+        for i,fname in enumerate(self.inputs):
+            data = self.dumps[fname].get_variables(ignore_bias=False)
+
+            # iterate over all variables
+            for k,v in data.items():
+                diffs[k].append(([i['diff'] for i in v], fname))
+
+        fs = []
+        for k,v in diffs.items():
+            fig = figure(title=k, x_axis_label='epochs',
+                y_axis_label='mean absolute difference')
+            for i in v:
+                y, f = i
+                fig.line(range(len(y)), y, color=self.colors[f], legend=f,
+                    line_width=3, line_alpha=0.7)
+
+            fs.append(fig)
+
+        return gridplot(fs, ncols=2)
+
+    @plot_or_empty
+    def histograms(self):
+        cmap = Magma256
+        cols = []
+
+        # iterate over all inputs
+        for fname in self.inputs:
+            data = self.dumps[fname].get_variables()
+            hs = []
+            # iterate over all variables
+            for k,v in data.items():
+                fig = figure(x_axis_label='weights', title=f'{fname}: {k}')
+                x = get_array(v[0]['bin_edges'])[:-1]
+                c = np.linspace(255,1,len(v)).astype(int)
+                displacement = np.linspace(150, 0, len(v))
+
+                # iterate over all epochs
+                for j,i in enumerate(v):
+                    y = get_array(i['hist'])
+                    d = displacement[j]
+                    assert (y + d >= 0).all()
+                    fig.patch(x,y + d, fill_color=cmap[c[j]], line_width=0.5,
+                        line_color=cmap[256-c[j]])
+
+                hs.append(fig)
+
+            cols.append(column(hs))
+        return row(cols)
+
+    @plot_or_empty
+    def metrics(self):
+        dd = {}
+        for i,inp in enumerate(self.inputs):
+            dd[inp] = self.dumps[inp].get_metrics()
+
+        # just keep metrics from the last dump
+        metrics = dd[inp].keys()
+
+        fs = []
+        for metric in metrics:
+            i = 0
+            f = figure(x_axis_label='epochs', y_axis_label=metric)
+            for k,v in dd.items():
+                if metric in v:
+                    y = v[metric]
+                    f.line(x=range(len(y)), y=y, legend=k, color=self.colors[k],
+                        line_width=3, line_alpha=0.7)
+
+            fs.append(f)
+
+        return gridplot(fs, ncols=2)
+
+def plot_outputs(train_end, outdir, nrow=6, ncol=6):
     outputs = train_end['image_data']['outputs']
     inputs = train_end['image_data']['input_data']
 
-    path = os.path.join(outdir, 'images')
+    path = os.path.join(outdir,'input_images')
     os.makedirs(path, exist_ok=True)
+    
     for i,a in enumerate(get_array(inputs)):
         plt.imshow(a)
         plt.axis('off')
         plt.savefig(os.path.join(path,'img{}.png'.format(i)))
 
-    outdir = os.path.join(outdir, 'outputs')
     fig, axes = plt.subplots(nrow, ncol, figsize=(10,10))
 
     for k,v in outputs.items():
@@ -110,7 +242,7 @@ def plot_filters(train_end, outdir, nrow=6, ncol=6):
         imgs = np.einsum('ijkl->iljk', imgs)
 
         n = nrow * ncol
-        path = os.path.join(outdir, '{}-outs'.format(k))
+        path = os.path.join(outdir, '{}-outputs'.format(k))
         os.makedirs(path, exist_ok=True)
 
         for img_id, ims in enumerate(imgs):
@@ -119,8 +251,6 @@ def plot_filters(train_end, outdir, nrow=6, ncol=6):
             for i,a in enumerate(ims):
                 if i % n == 0:
                     if i > 0:
-                        # print(os.path.join(path,
-                        #     'outs-img{}-{}.png'.format(img_id, seq)))
                         fig.savefig(os.path.join(path,
                             'outs-img{}-{}.png'.format(img_id, seq)))
                         seq += 1
@@ -134,151 +264,37 @@ def plot_filters(train_end, outdir, nrow=6, ncol=6):
                 ax.axis('off')
 
             if i % n:
-                # print(os.path.join(path,
-                #             'outs-img{}-{}.png'.format(img_id, seq)))
-                fig.savefig(os.path.join(path, 
-                    'outs-img{}-{}.png'.format(img_id, seq)))
-
-def plot_projection(train_end, outdir, dim3=False):
-    data = train_end['validation_data']
-    labels = get_array(data['labels'])
-    preds = get_array(data['predictions'])
-    val_data = get_array(data['val_data'])
-
-    if len(preds.shape) > 1 and preds.shape[1] > 1:
-        # turn probabilities into labels
-        preds = np.argmax(preds,axis=1)
-
-    fig = plt.figure()
-    d = 3 if dim3 else 2
-    X = PCA(d).fit_transform(val_data.reshape(val_data.shape[0],-1))
-    n = X.shape[0]
-
-    # take only 1000 samples
-    if n > 1000:
-        ix = sample(range(n), 1000)
-        X = X[ix]
-        labels = labels[ix]
-        preds = preds[ix]
-    
-    if dim3:
-        ax1 = fig.add_subplot(121, projection='3d')
-        ax1.scatter(X[:,0], X[:,1], X[:,2], c=labels.squeeze(), alpha=0.6)
-        ax1.set_zlabel('pca 3')
-
-        ax2 = fig.add_subplot(122, projection='3d')
-        ax2.scatter(X[:,0], X[:,1], X[:,2], c=preds.squeeze(), alpha=0.6)
-        ax2.set_zlabel('pca 3')
-    else:
-        ax1 = fig.add_subplot(121)
-        ax1.scatter(X[:,0], X[:,1], c=labels.squeeze(), alpha=0.6)
-        ax1.grid()
-
-        ax2 = fig.add_subplot(122)
-        ax2.scatter(X[:,0], X[:,1], c=preds.squeeze(), alpha=0.6)
-        ax2.grid()
-
-    ax1.set_title('original')
-    ax1.set_xlabel('pca 1')
-    ax1.set_ylabel('pca 2')
-    ax2.set_title('model')
-    ax2.set_xlabel('pca 1')
-    ax2.set_ylabel('pca 2')
-    # fig.suptitle(f'Projection {d}D')
-    plt.tight_layout()
-    path = os.path.join(outdir,'projection')
-    os.makedirs(path, exist_ok=True)
-    fig.savefig(os.path.join(path, 'projection.png'))
-
-def plot_weight_dynamics(epochs, layers, outdir):
-    d = defaultdict(list)
-
-    for e in epochs:
-        for l in layers:
-            for k,v in e['weights'][l].items():
-                d[k].append(v)
-
-    path = os.path.join(outdir, 'mean_abs_diff')
-    os.makedirs(path, exist_ok=True)
-
-    for k,v in d.items():
-        fig = plt.figure()
-        x = []
-        for i in v:
-            x.append(i['diff'])
-
-        plt.fill_between(range(len(x)), x)
-
-        plt.xlabel('epochs')
-        plt.ylabel('mean absolute difference')
-        plt.title(k)
-        fname = re.sub('[/:]', '_',k)
-        plt.savefig(os.path.join(path, f'mad-{fname}.png'))
-
-def compare_metrics(inputs, outdir):
-    # double dictionary
-    dd = {}
-    for i in inputs:
-        with open(i) as f:
-            j = json.load(f)
-            epochs = j['training']
-            dd[i] = get_metrics(epochs)
-
-    # just keep metrics from the last dump
-    keys = dd[i].keys()
-    path = os.path.join(outdir, 'model_comparison')
-    os.makedirs(path, exist_ok=True)
-
-    for key in keys:
-        i = 0
-        for k,v in dd.items():
-            if key in v:
-                plt.plot(v[key], label=k)
-
-        plt.title(key)
-        plt.legend()
-        plt.grid()
-        plt.savefig(os.path.join(path,f'{key}.png'))
-        plt.clf()
+                fname = os.path.join(path, f'outs-img{img_id}-{seq}.png')
+                print(f'Creating {fname}')
+                fig.savefig(fname)
 
 def main():
     parser = argparse.ArgumentParser(description='Create images from json.')
     parser.add_argument('input', type=str, nargs='+', help='input file')
     parser.add_argument('-o','--output', type=str, help='output directory',
-        metavar='FILE', default='out')
-    parser.add_argument('-p','--p3d', action='store_true',
-        help='use 3D projection instead of 2D')
-    parser.add_argument('-c','--cmp', action='store_true',
-        help='compare multiple models')
+        metavar='FILE', default='output')
+    parser.add_argument('-i','--img',action='store_true',
+        help='output only outputs of convolutional layers')
     args = parser.parse_args()
 
+    if args.img:
+        if len(args.input) > 1:
+            print('Producing output for the first argument only ...',
+                file=sys.stderr)
 
-    os.makedirs(args.output, exist_ok=True)
+        with open(args.input[0]) as f: 
+            train_end = Extractor.load_from_json(f).train_end
 
-    try:
-        if len(args.input) > 1 and args.cmp:
-            compare_metrics(args.input, args.output)
-        else:
-            if len(args.input) > 1:
-                print('to compare multiple models run with the --cmp option')
-            dump = args.input[0]
-
-            with open(dump) as f:
-                j = json.load(f)
-
-            plot_metrics(j['training'], args.output)
-            plot_weights_distributions(j['training'], j['train_end']['layers'],
-                args.output)
-
-            if 'image_data' in j['train_end']:
-                plot_filters(j['train_end'], args.output)
-
-            plot_projection(j['train_end'], args.output, args.p3d)
-            plot_weight_dynamics(j['training'], j['train_end']['layers'],
-                args.output)
-
-    except(Exception) as e:
-        raise RuntimeError("corrupted input file") from e
+            if 'image_data' in train_end:
+                plot_outputs(train_end, args.output)
+            else:
+                print('[ERROR] No image data found', file=sys.stderr)
+    else:
+        output = args.output
+        if not args.output.endswith('.html'):
+            output += '.html'
+        bokap = BokenApp(args.input, output)
+        bokap.render()
 
 if __name__ == '__main__':
     main()
