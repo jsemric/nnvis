@@ -5,18 +5,20 @@ import json
 import os, sys
 import numpy as np
 import matplotlib.pyplot as plt
+import random
 
 from functools import wraps
-from random import sample
 from collections import defaultdict
 from sklearn.decomposition import PCA
 from utils import get_array
 
 from bokeh.plotting import figure
-from bokeh.palettes import Dark2_5, Magma256
+from bokeh.palettes import Dark2_5, Magma256, Viridis256
 from bokeh.io import output_file, show, save
 from bokeh.layouts import column, gridplot, row
 from bokeh.models.widgets import Panel, Tabs
+from bokeh.models import ColorBar, Legend
+from bokeh.transform import linear_cmap
 
 class Extractor:
 
@@ -114,9 +116,11 @@ class BokenApp:
     @plot_or_empty
     def projection(self):
         rows = []
-        cmap = Magma256
+        cmap = Viridis256
+        random.seed(52)
 
         for i,fname in enumerate(self.inputs):
+            
             val_data, labels, preds = self.dumps[fname].get_val_data()
             X = PCA(2).fit_transform(val_data.reshape(val_data.shape[0],-1))
             n = X.shape[0]
@@ -126,21 +130,25 @@ class BokenApp:
                 preds = np.argmax(preds, axis=1)
 
             if n > 1000:
-                ix = sample(range(n), 1000)
+                ix = random.sample(range(n), 1000)
                 X = X[ix]
                 labels = labels[ix]
                 preds = preds[ix]
 
+            labels = labels.squeeze()
+            mapper = linear_cmap(field_name='y', palette=Viridis256,
+                low=min(labels), high=max(labels))
             labels = BokenApp.normalize(labels, 255).astype(int)
-            preds = BokenApp.normalize(preds, 255).astype(int)
-            color = [cmap[i] for i in labels.squeeze()]
-
+            preds = BokenApp.normalize(preds, 255).astype(int).squeeze()
+            
             f1 = figure(title=f'{fname} original')
-            f1.circle(X[:,0], X[:,1], color=color)
-            color = [cmap[i] for i in preds.squeeze()]
+            f1.circle(X[:,0], X[:,1], color=[cmap[i] for i in labels])
             f2 = figure(title=f'{fname} predictions')
-            f2.circle(X[:,0], X[:,1], color=color)
-            # rows.append(column(f1,f2))
+            f2.circle(X[:,0], X[:,1], color=[cmap[i] for i in preds])
+            
+            color_bar = ColorBar(color_mapper=mapper['transform'],
+                width=8, location=(0,0))
+            f2.add_layout(color_bar, 'right')
             rows.append(f1)
             rows.append(f2)
 
@@ -185,15 +193,18 @@ class BokenApp:
                 fig = figure(x_axis_label='weights', title=f'{fname}: {k}')
                 x = get_array(v[0]['bin_edges'])[:-1]
                 c = np.linspace(255,1,len(v)).astype(int)
+                first = get_array(v[0]['hist'])
+                max_ = first.max()
                 displacement = np.linspace(150, 0, len(v))
 
                 # iterate over all epochs
                 for j,i in enumerate(v):
-                    y = get_array(i['hist'])
+                    y = get_array(i['hist']) * 60 / max_
                     d = displacement[j]
                     assert (y + d >= 0).all()
                     fig.patch(x,y + d, fill_color=cmap[c[j]], line_width=0.5,
                         line_color=cmap[256-c[j]])
+                    fig.yaxis.visible = False
 
                 hs.append(fig)
 
@@ -213,12 +224,17 @@ class BokenApp:
         for metric in metrics:
             i = 0
             f = figure(x_axis_label='epochs', y_axis_label=metric)
+            legend_items = []
             for k,v in dd.items():
                 if metric in v:
                     y = v[metric]
-                    f.line(x=range(len(y)), y=y, legend=k, color=self.colors[k],
+                    c = f.line(x=range(len(y)), y=y, color=self.colors[k],
                         line_width=3, line_alpha=0.7)
+                    legend_items.append((k, [c]))
 
+            legend = Legend(items=legend_items, location=(60, -60),
+                background_fill_alpha=0.2)
+            f.add_layout(legend, 'above')
             fs.append(f)
 
         return gridplot(fs, ncols=2)

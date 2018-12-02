@@ -92,23 +92,6 @@ def main():
         keras.layers.Dense(4, activation='softmax')
     ])
 
-    # model = keras.models.Sequential([
-    #     keras.layers.Conv2D(64, kernel_size=(3,3), activation='relu',
-    #         padding='same', input_shape=SHAPE),
-    #     keras.layers.MaxPool2D(),
-    #     keras.layers.Conv2D(96, kernel_size=(3,3), activation='relu',
-    #         padding='same'),
-    #     keras.layers.MaxPool2D(),
-    #     keras.layers.Dropout(.5),
-    #     keras.layers.Conv2D(32, kernel_size=(1,1), activation='relu',
-    #         padding='same'),
-    #     keras.layers.Conv2D(128, kernel_size=(3,3), activation='relu',
-    #         padding='same'),
-    #     keras.layers.Dropout(.5),
-    #     keras.layers.Flatten(),
-    #     keras.layers.Dense(4, activation='softmax')
-    # ])
-
     if args.summary:
         print(model.summary())
         keras.utils.plot_model(model, to_file='cifar4-model.png',
