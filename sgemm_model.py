@@ -22,6 +22,8 @@ def main():
         help='print the model summary and exit')
     parser.add_argument('-v','--verbose', type=int, default=1,
         help='control verbosity of training (default 1)')
+    parser.add_argument('-a','--activation', type=str, default='relu',
+        help='activation function (default relu)')
     args = parser.parse_args()
 
     # load datasets
@@ -31,15 +33,16 @@ def main():
     X -= X.min(axis=0)
     X /= X.max(axis=0)
 
-    x_train, x_val, y_train, y_val = train_test_split(X, y, test_size=.2)
+    x_train, x_val, y_train, y_val = train_test_split(X, y, test_size=.2,
+        random_state=52)
 
     # build and train model
     model = keras.models.Sequential([
-        keras.layers.Dense(64, activation='relu',
+        keras.layers.Dense(64, activation=args.activation,
             input_shape=(x_train.shape[1],)),
         keras.layers.Dropout(.5),
-        keras.layers.Dense(48, activation='relu'),
-        keras.layers.Dense(32, activation='relu'),
+        keras.layers.Dense(48, activation=args.activation),
+        keras.layers.Dense(32, activation=args.activation),
         keras.layers.Dense(1)
     ])
 
