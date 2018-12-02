@@ -104,7 +104,7 @@ class BokenApp:
         tab3 = Panel(title='Mean Absolute Difference',
             child=self.mean_abs_diff())
         tab4 = Panel(title='Projection', child=self.projection())
-        tabs = Tabs(tabs=[tab1, tab2, tab3, tab4])
+        tabs = Tabs(tabs=[tab2, tab1, tab3, tab4])
         show(tabs)
         # save(tabs)
 
@@ -191,7 +191,12 @@ class BokenApp:
             # iterate over all variables
             for k,v in data.items():
                 fig = figure(x_axis_label='weights', title=f'{fname}: {k}')
-                x = get_array(v[0]['bin_edges'])[:-1]
+                
+                x = get_array(v[0]['bin_edges'])
+                # append to make fig.path make the same as plt.fill_betweem
+                d = x[1] - x[0]
+                x = np.append([x[0] - d], x)
+                
                 c = np.linspace(255,1,len(v)).astype(int)
                 first = get_array(v[0]['hist'])
                 max_ = first.max()
@@ -199,13 +204,15 @@ class BokenApp:
 
                 # iterate over all epochs
                 for j,i in enumerate(v):
-                    y = get_array(i['hist']) * 60 / max_
+                    y = get_array(i['hist'])
+                    y = y * 60 / max_
+                    # append to make fig.path make the same as plt.fill_betweem
+                    y = np.concatenate([[0], y, [0]])
                     d = displacement[j]
-                    assert (y + d >= 0).all()
-                    fig.patch(x,y + d, fill_color=cmap[c[j]], line_width=0.5,
+                    fig.patch(x, y + d, fill_color=cmap[c[j]], line_width=0.5,
                         line_color=cmap[256-c[j]])
-                    fig.yaxis.visible = False
 
+                fig.yaxis.visible = False
                 hs.append(fig)
 
             cols.append(column(hs))
