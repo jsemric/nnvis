@@ -20,6 +20,13 @@ from bokeh.models.widgets import Panel, Tabs
 from bokeh.models import ColorBar, Legend
 from bokeh.transform import linear_cmap
 
+class bcolors:
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
+
 class Extractor:
 
     def __init__(self, dump):
@@ -71,8 +78,9 @@ class BokenApp:
                     self.dumps[i] = Extractor.load_from_json(f)
                 self.inputs.append(i)
             except:
-                print(f'[WARNING] cannot open `{i}` skipping to next')
-                raise
+                print(f'{bcolors.WARNING}Warning: cannot open `{i}` skipping to'
+                    f' the next file{bcolors.ENDC}', file=sys.stderr)
+                # raise
 
         if len(self.inputs) == 0:
             raise RuntimeError("at least one valid input required")
@@ -104,7 +112,7 @@ class BokenApp:
         tab3 = Panel(title='Mean Absolute Difference',
             child=self.mean_abs_diff())
         tab4 = Panel(title='Projection', child=self.projection())
-        tabs = Tabs(tabs=[tab2, tab1, tab3, tab4])
+        tabs = Tabs(tabs=[tab1, tab2, tab3, tab4])
         show(tabs)
         # save(tabs)
 
@@ -174,6 +182,7 @@ class BokenApp:
                 y, f = i
                 fig.line(range(len(y)), y, color=self.colors[f], legend=f,
                     line_width=3, line_alpha=0.7)
+                fig.circle(x=range(len(y)), y=y, color=self.colors[f], size=8)
 
             fs.append(fig)
 
@@ -237,6 +246,8 @@ class BokenApp:
                     y = v[metric]
                     c = f.line(x=range(len(y)), y=y, color=self.colors[k],
                         line_width=3, line_alpha=0.7)
+                    c = f.circle(x=range(len(y)), y=y, color=self.colors[k],
+                        size=8)
                     legend_items.append((k, [c]))
 
             legend = Legend(items=legend_items, location=(60, -60),
@@ -292,32 +303,43 @@ def plot_outputs(train_end, outdir, nrow=6, ncol=6):
                 fig.savefig(fname)
 
 def main():
-    parser = argparse.ArgumentParser(description='Create images from json.')
-    parser.add_argument('input', type=str, nargs='+', help='input file')
-    parser.add_argument('-o','--output', type=str, help='output directory',
-        metavar='FILE', default='output')
+    parser = argparse.ArgumentParser(description=
+        'Tool for visualizing neural networks. Compare multiple networks and '
+        'show the result in the browser or provide outputs of convolutional '
+        'layers (-i option).')
+    parser.add_argument('input', type=str, nargs='+',
+        help='input files in JSON format following the Collector protocol',
+        metavar='FILE')
+    parser.add_argument('-o','--output', type=str, help='output file/directory',
+        metavar='PATH', default='output')
     parser.add_argument('-i','--img',action='store_true',
-        help='output only outputs of convolutional layers')
-    args = parser.parse_args()
+        help='provide only outputs of convolutional layers')
+    
+    try:
+        args = parser.parse_args()
 
-    if args.img:
-        if len(args.input) > 1:
-            print('Producing output for the first argument only ...',
-                file=sys.stderr)
+        if args.img:
+            with open(args.input[0]) as f:
+                train_end = Extractor.load_from_json(f).train_end
 
-        with open(args.input[0]) as f: 
-            train_end = Extractor.load_from_json(f).train_end
+                if 'image_data' in train_end:
+                    print('Producing output for the first argument only ...',
+                        file=sys.stderr)
+                    plot_outputs(train_end, args.output)
+                else:
+                    raise RuntimeError('No image data found')
+        else:
+            output = args.output
+            if not args.output.endswith('.html'):
+                output += '.html'
+                
+            bokap = BokenApp(args.input, output)
+            print('Generating JavaScript ...')
+            bokap.render()
 
-            if 'image_data' in train_end:
-                plot_outputs(train_end, args.output)
-            else:
-                print('[ERROR] No image data found', file=sys.stderr)
-    else:
-        output = args.output
-        if not args.output.endswith('.html'):
-            output += '.html'
-        bokap = BokenApp(args.input, output)
-        bokap.render()
+    except Exception as e:
+        print(f'{bcolors.FAIL}Error: {e}{bcolors.ENDC}', file=sys.stderr)
+        sys.exit(1)
 
 if __name__ == '__main__':
     main()
